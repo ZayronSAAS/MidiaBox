@@ -125,9 +125,9 @@ export default function ClientePage({ params }: PageProps) {
   ]
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-7">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-6 sm:mb-7">
         <Link href="/clientes">
           <button className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
             <ArrowLeft className="w-4 h-4" />
@@ -148,20 +148,20 @@ export default function ClientePage({ params }: PageProps) {
             {pendingCount} aguardando aprovação
           </span>
         )}
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
           <button
             onClick={openEdit}
-            className="flex items-center gap-2 text-sm font-medium text-slate-600 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 px-3 py-2 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 sm:gap-2 text-sm font-medium text-slate-600 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 px-2.5 sm:px-3 py-2 rounded-lg transition-colors"
           >
             <Pencil className="w-3.5 h-3.5" />
-            Editar
+            <span className="hidden sm:inline">Editar</span>
           </button>
           <button
             onClick={() => setDeleteOpen(true)}
-            className="flex items-center gap-2 text-sm font-medium text-red-500 border border-red-200 hover:bg-red-50 px-3 py-2 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 sm:gap-2 text-sm font-medium text-red-500 border border-red-200 hover:bg-red-50 px-2.5 sm:px-3 py-2 rounded-lg transition-colors"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            Excluir
+            <span className="hidden sm:inline">Excluir</span>
           </button>
           <Button onClick={() => openNewPost()} className="gap-2 h-9 font-medium"
             style={{ background: "linear-gradient(135deg, oklch(0.65 0.22 283), oklch(0.55 0.25 300))" }}>
@@ -383,7 +383,7 @@ export default function ClientePage({ params }: PageProps) {
               <Button
                 variant="outline"
                 onClick={() => setEditOpen(false)}
-                className="border-slate-200 text-slate-600 hover:bg-slate-50"
+                className="border-red-200 text-red-600 hover:bg-red-50"
               >
                 Cancelar
               </Button>

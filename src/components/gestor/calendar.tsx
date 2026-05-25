@@ -56,14 +56,15 @@ export function Calendar({ posts, onPostClick, onDayClick }: CalendarProps) {
       </div>
 
       {/* Week days */}
-      <div className="grid grid-cols-7 border-b border-slate-100">
+      <div className="overflow-x-auto">
+      <div className="min-w-[560px] grid grid-cols-7 border-b border-slate-100">
         {weekDays.map((d) => (
           <div key={d} className="py-2 text-center text-[11px] font-medium text-slate-400 uppercase tracking-wide">{d}</div>
         ))}
       </div>
 
       {/* Days grid */}
-      <div className="grid grid-cols-7">
+      <div className="min-w-[560px] grid grid-cols-7">
         {days.map((day, i) => {
           const dayPosts = getPostsForDay(day)
           const inMonth = isSameMonth(day, currentMonth)
@@ -109,6 +110,7 @@ export function Calendar({ posts, onPostClick, onDayClick }: CalendarProps) {
             </div>
           )
         })}
+      </div>
       </div>
     </div>
   )

@@ -28,7 +28,7 @@ export default function NovoClientePage() {
   }
 
   return (
-    <div className="p-8 max-w-2xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-2xl mx-auto">
       <div className="flex items-center gap-4 mb-8">
         <Link href="/clientes">
           <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
@@ -121,7 +121,7 @@ export default function NovoClientePage() {
             <div className="flex gap-3 pt-2">
               <Button type="submit" className="flex-1">Criar cliente</Button>
               <Link href="/clientes">
-                <Button type="button" variant="outline">Cancelar</Button>
+                <Button type="button" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50">Cancelar</Button>
               </Link>
             </div>
           </CardContent>

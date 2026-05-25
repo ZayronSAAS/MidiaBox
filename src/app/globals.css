@@ -94,6 +94,6 @@
     @apply bg-background text-foreground;
     background-color: oklch(0.08 0 0);
     color-scheme: dark;
-    font-family: 'Instagram Sans', ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Open Sans', ui-sans-serif, system-ui, sans-serif;
   }
 }

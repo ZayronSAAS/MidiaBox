@@ -18,22 +18,23 @@ const platformIcons: Record<string, React.ReactNode> = {
 
 export default function ClientesPage() {
   return (
-    <div className="p-8 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
+    <div className="p-4 sm:p-8 max-w-6xl mx-auto">
+      <div className="flex items-center justify-between mb-6 sm:mb-8 gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Clientes</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Clientes</h1>
           <p className="text-slate-500 mt-0.5 text-sm">{mockClients.length} clientes ativos</p>
         </div>
         <Link href="/clientes/novo">
           <Button className="gap-2 font-medium h-9"
             style={{ background: "linear-gradient(135deg, oklch(0.65 0.22 283), oklch(0.55 0.25 300))" }}>
             <Plus className="w-4 h-4" />
-            Novo cliente
+            <span className="hidden sm:inline">Novo cliente</span>
+            <span className="sm:hidden">Novo</span>
           </Button>
         </Link>
       </div>
 
-      <div className="grid grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
         {mockClients.map((client) => {
           const posts = mockPosts.filter((p) => p.clientId === client.id)
           const pending = posts.filter((p) => p.status === "aprovacao").length

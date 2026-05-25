@@ -111,7 +111,7 @@ export default function AcompanhamentoPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4 mb-7">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-7">
         {[
           { label: "Publicados",          value: published,       icon: CheckCircle,   color: "text-green-600",  bg: "bg-green-50" },
           { label: "Agendados",           value: scheduled,       icon: Calendar,      color: "text-blue-600",   bg: "bg-blue-50"  },
@@ -170,13 +170,13 @@ export default function AcompanhamentoPage() {
         Calendário — {format(currentMonth, "MMMM", { locale: ptBR })}
       </h2>
 
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        <div className="grid grid-cols-7 border-b border-slate-100">
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden overflow-x-auto">
+        <div className="min-w-[560px] grid grid-cols-7 border-b border-slate-100">
           {weekDays.map((d) => (
             <div key={d} className="py-2 text-center text-[11px] font-medium text-slate-400 uppercase tracking-wide">{d}</div>
           ))}
         </div>
-        <div className="grid grid-cols-7">
+        <div className="min-w-[560px] grid grid-cols-7">
           {calDays.map((day, i) => {
             const dayPosts = getPostsForDay(day)
             const inMonth = isSameMonth(day, currentMonth)
