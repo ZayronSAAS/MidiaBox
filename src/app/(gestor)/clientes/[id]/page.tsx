@@ -3,14 +3,17 @@
 import { use, useState } from "react"
 import { useRouter } from "next/navigation"
 import { mockClients, mockPosts } from "@/lib/mock-data"
-import { Post, PostStatus } from "@/types"
+import { Client, Post, PostStatus, SocialNetwork } from "@/types"
 import { Calendar } from "@/components/gestor/calendar"
 import { PostModal } from "@/components/gestor/post-modal"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { statusConfig, networkConfig } from "@/lib/utils"
-import { ArrowLeft, Plus } from "lucide-react"
+import { ArrowLeft, Plus, Pencil, Trash2, X } from "lucide-react"
 import { format } from "date-fns"
 import Link from "next/link"
 
@@ -18,16 +21,27 @@ interface PageProps {
   params: Promise<{ id: string }>
 }
 
+const colorPresets = [
+  "#6F4E37", "#E91E63", "#2E7D32", "#1565C0", "#F57C00",
+  "#6A1B9A", "#00838F", "#AD1457", "#558B2F", "#4527A0",
+]
+
 export default function ClientePage({ params }: PageProps) {
   const { id } = use(params)
   const router = useRouter()
 
-  const client = mockClients.find((c) => c.id === id)
+  const found = mockClients.find((c) => c.id === id)
+  const [client, setClient] = useState<Client | null>(found ?? null)
   const [posts, setPosts] = useState<Post[]>(mockPosts.filter((p) => p.clientId === id))
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [newPostDate, setNewPostDate] = useState<Date | null>(null)
   const [filterStatus, setFilterStatus] = useState<PostStatus | "all">("all")
+
+  // Edit modal state
+  const [editOpen, setEditOpen] = useState(false)
+  const [editForm, setEditForm] = useState<Partial<Client>>({})
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   if (!client) {
     return (
@@ -36,6 +50,35 @@ export default function ClientePage({ params }: PageProps) {
         <Link href="/clientes"><Button variant="outline" className="mt-4">Voltar</Button></Link>
       </div>
     )
+  }
+
+  function openEdit() {
+    setEditForm({
+      name: client!.name,
+      niche: client!.niche,
+      toneOfVoice: client!.toneOfVoice,
+      briefing: client!.briefing,
+      color: client!.color,
+      socialNetworks: client!.socialNetworks.map((sn) => ({ ...sn })),
+    })
+    setEditOpen(true)
+  }
+
+  function handleEditSave() {
+    setClient((prev) => prev ? { ...prev, ...editForm } : prev)
+    setEditOpen(false)
+  }
+
+  function handleDeleteClient() {
+    router.push("/clientes")
+  }
+
+  function updateSocialHandle(index: number, handle: string) {
+    setEditForm((prev) => {
+      const nets = [...(prev.socialNetworks ?? [])]
+      nets[index] = { ...nets[index], handle }
+      return { ...prev, socialNetworks: nets }
+    })
   }
 
   function handleSave(data: Partial<Post>) {
@@ -105,7 +148,21 @@ export default function ClientePage({ params }: PageProps) {
             {pendingCount} aguardando aprovação
           </span>
         )}
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={openEdit}
+            className="flex items-center gap-2 text-sm font-medium text-slate-600 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 px-3 py-2 rounded-lg transition-colors"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+            Editar
+          </button>
+          <button
+            onClick={() => setDeleteOpen(true)}
+            className="flex items-center gap-2 text-sm font-medium text-red-500 border border-red-200 hover:bg-red-50 px-3 py-2 rounded-lg transition-colors"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Excluir
+          </button>
           <Button onClick={() => openNewPost()} className="gap-2 h-9 font-medium"
             style={{ background: "linear-gradient(135deg, oklch(0.65 0.22 283), oklch(0.55 0.25 300))" }}>
             <Plus className="w-4 h-4" />
@@ -220,6 +277,150 @@ export default function ClientePage({ params }: PageProps) {
         onDelete={handleDelete}
         clientId={id}
       />
+
+      {/* Modal de edição do cliente */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto bg-white text-slate-900 border-slate-200">
+          <DialogHeader>
+            <DialogTitle className="text-slate-900 text-base font-semibold">Editar cliente</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-2">
+            {/* Nome */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-slate-500 font-medium">Nome do cliente</Label>
+              <Input
+                value={editForm.name ?? ""}
+                onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))}
+                className="border-slate-200 bg-white text-slate-900 focus-visible:ring-violet-500/50"
+              />
+            </div>
+
+            {/* Nicho */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-slate-500 font-medium">Nicho / Segmento</Label>
+              <Input
+                value={editForm.niche ?? ""}
+                onChange={(e) => setEditForm((p) => ({ ...p, niche: e.target.value }))}
+                className="border-slate-200 bg-white text-slate-900 focus-visible:ring-violet-500/50"
+              />
+            </div>
+
+            {/* Cor */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-slate-500 font-medium">Cor do cliente</Label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={editForm.color ?? "#6F4E37"}
+                  onChange={(e) => setEditForm((p) => ({ ...p, color: e.target.value }))}
+                  className="w-10 h-10 rounded-lg border border-slate-200 cursor-pointer p-0.5 bg-white"
+                />
+                <div className="flex gap-1.5 flex-wrap">
+                  {colorPresets.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setEditForm((p) => ({ ...p, color: c }))}
+                      className="w-6 h-6 rounded-full border-2 transition-all hover:scale-110"
+                      style={{
+                        backgroundColor: c,
+                        borderColor: editForm.color === c ? "#7c3aed" : "transparent",
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Tom de voz */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-slate-500 font-medium">Tom de voz</Label>
+              <Input
+                value={editForm.toneOfVoice ?? ""}
+                onChange={(e) => setEditForm((p) => ({ ...p, toneOfVoice: e.target.value }))}
+                className="border-slate-200 bg-white text-slate-900 focus-visible:ring-violet-500/50"
+              />
+            </div>
+
+            {/* Briefing */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-slate-500 font-medium">Briefing</Label>
+              <Textarea
+                value={editForm.briefing ?? ""}
+                onChange={(e) => setEditForm((p) => ({ ...p, briefing: e.target.value }))}
+                rows={3}
+                className="resize-none border-slate-200 bg-white text-slate-900 focus-visible:ring-violet-500/50"
+              />
+            </div>
+
+            {/* Redes sociais */}
+            {(editForm.socialNetworks ?? []).length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-xs text-slate-500 font-medium">Redes sociais</Label>
+                {(editForm.socialNetworks ?? []).map((sn, i) => (
+                  <div key={sn.platform} className="flex items-center gap-2">
+                    <span className="text-xs text-slate-400 capitalize w-20 flex-shrink-0">{sn.platform}</span>
+                    <Input
+                      value={sn.handle}
+                      onChange={(e) => updateSocialHandle(i, e.target.value)}
+                      className="border-slate-200 bg-white text-slate-900 focus-visible:ring-violet-500/50 text-sm"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Botões */}
+            <div className="flex gap-2 pt-2">
+              <Button
+                onClick={handleEditSave}
+                className="flex-1 font-semibold"
+                style={{ background: "linear-gradient(135deg, oklch(0.65 0.22 283), oklch(0.55 0.25 300))" }}
+              >
+                Salvar alterações
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setEditOpen(false)}
+                className="border-slate-200 text-slate-600 hover:bg-slate-50"
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de confirmação de exclusão */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="max-w-sm bg-white text-slate-900 border-slate-200">
+          <DialogHeader>
+            <DialogTitle className="text-slate-900 text-base font-semibold">Excluir cliente</DialogTitle>
+          </DialogHeader>
+          <div className="mt-2 space-y-4">
+            <p className="text-sm text-slate-500">
+              Tem certeza que deseja excluir <span className="font-semibold text-slate-900">{client.name}</span>? Todos os posts e dados serão perdidos.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleDeleteClient}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Excluir cliente
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setDeleteOpen(false)}
+                className="flex-1 border-slate-200 text-slate-600 hover:bg-slate-50"
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

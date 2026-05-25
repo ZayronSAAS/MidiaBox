@@ -222,7 +222,7 @@ export default function AcompanhamentoPage() {
 
       {selectedPost && (
         <Dialog open={!!selectedPost} onOpenChange={() => setSelectedPost(null)}>
-          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto bg-white text-slate-900 border-slate-200">
             <DialogHeader>
               <DialogTitle className="text-slate-900">{selectedPost.title}</DialogTitle>
             </DialogHeader>
