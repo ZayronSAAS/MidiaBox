@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { mockClients, mockPosts } from "@/lib/mock-data"
-import { Post, User } from "@/types"
+import { Post } from "@/types"
+import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -16,7 +17,7 @@ import { cn } from "@/lib/utils"
 const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]
 
 export default function AcompanhamentoPage() {
-  const [user, setUser] = useState<User | null>(null)
+  const [userName, setUserName] = useState<string>("")
   const [posts, setPosts] = useState<Post[]>([])
   const [client, setClient] = useState(mockClients[0])
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
@@ -24,19 +25,18 @@ export default function AcompanhamentoPage() {
   const currentMonth = new Date()
 
   useEffect(() => {
-    const stored = localStorage.getItem("sd_user")
-    if (stored) {
-      const u: User = JSON.parse(stored)
-      setUser(u)
-      const clientMap: Record<string, string> = {
-        "joao@cafedojoao.com": "c1",
-        "maria@mariafit.com": "c2",
+    async function loadUser() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        setUserName(user.user_metadata?.name ?? user.email ?? "")
+        const clientId = user.user_metadata?.client_id ?? "c1"
+        const foundClient = mockClients.find((c) => c.id === clientId) ?? mockClients[0]
+        setClient(foundClient)
+        setPosts(mockPosts.filter((p) => p.clientId === clientId))
       }
-      const cId = clientMap[u.email] ?? "c1"
-      const foundClient = mockClients.find((c) => c.id === cId) ?? mockClients[0]
-      setClient(foundClient)
-      setPosts(mockPosts.filter((p) => p.clientId === cId))
     }
+    loadUser()
   }, [])
 
   const published = posts.filter((p) => p.status === "publicado").length
@@ -71,7 +71,7 @@ export default function AcompanhamentoPage() {
   }
 
   function handleComment(postId: string) {
-    if (!comment.trim() || !user) return
+    if (!comment.trim()) return
     setPosts((prev) => prev.map((p) =>
       p.id === postId
         ? {
@@ -81,8 +81,8 @@ export default function AcompanhamentoPage() {
               {
                 id: `c${Date.now()}`,
                 postId,
-                authorId: user.id,
-                authorName: user.name,
+                authorId: "cliente",
+                authorName: userName,
                 authorRole: "cliente" as const,
                 content: comment,
                 createdAt: new Date().toISOString(),

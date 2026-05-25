@@ -2,30 +2,39 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { mockUsers } from "@/lib/mock-data"
+import { Button } from "@/components/ui/button"
+import { createClient } from "@/lib/supabase/client"
+import { Loader2 } from "lucide-react"
 
 export default function LoginPage() {
   const router = useRouter()
   const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
-  function handleLogin(e: React.FormEvent) {
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
-    const user = mockUsers.find((u) => u.email === email.trim().toLowerCase())
-    if (!user) {
-      setError("E-mail não encontrado. Tente: ana@agencia.com, joao@cafedojoao.com ou maria@mariafit.com")
+    setLoading(true)
+    setError("")
+
+    const supabase = createClient()
+    const { data, error: authError } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    })
+
+    if (authError || !data.user) {
+      setError("E-mail ou senha incorretos. Verifique suas credenciais.")
+      setLoading(false)
       return
     }
-    localStorage.setItem("sd_user", JSON.stringify(user))
-    if (user.role === "gestor") {
-      router.push("/dashboard")
-    } else {
-      router.push("/acompanhamento")
-    }
+
+    const role = data.user.user_metadata?.role
+    router.push(role === "gestor" ? "/dashboard" : "/acompanhamento")
+    router.refresh()
   }
 
   return (
@@ -50,7 +59,7 @@ export default function LoginPage() {
         {/* Card */}
         <div className="rounded-2xl border border-white/[0.08] p-6" style={{ background: "oklch(0.12 0 0)" }}>
           <h2 className="text-base font-semibold text-white mb-1">Entrar na plataforma</h2>
-          <p className="text-xs text-zinc-500 mb-5">Use seu e-mail para acessar</p>
+          <p className="text-xs text-zinc-500 mb-5">Use seu e-mail e senha para acessar</p>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-1.5">
@@ -62,6 +71,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setError("") }}
                 autoComplete="email"
+                required
                 className="bg-white/5 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-violet-500/50 focus-visible:border-violet-500/50"
               />
             </div>
@@ -71,36 +81,35 @@ export default function LoginPage() {
                 id="password"
                 type="password"
                 placeholder="••••••••"
-                defaultValue="123456"
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); setError("") }}
+                autoComplete="current-password"
+                required
                 className="bg-white/5 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-violet-500/50"
               />
             </div>
+
             {error && (
-              <p className="text-xs text-red-400 bg-red-950/50 border border-red-900/50 px-3 py-2 rounded-lg">{error}</p>
+              <p className="text-xs text-red-400 bg-red-950/50 border border-red-900/50 px-3 py-2 rounded-lg">
+                {error}
+              </p>
             )}
-            <Button type="submit" className="w-full font-semibold h-10"
-              style={{ background: "linear-gradient(135deg, oklch(0.65 0.22 283), oklch(0.55 0.25 300))" }}>
-              Entrar
+
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full font-semibold h-10 gap-2"
+              style={{ background: "linear-gradient(135deg, oklch(0.65 0.22 283), oklch(0.55 0.25 300))" }}
+            >
+              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+              {loading ? "Entrando..." : "Entrar"}
             </Button>
           </form>
-
-          <div className="mt-5 pt-4 border-t border-white/[0.06]">
-            <p className="text-[11px] text-zinc-600 mb-2 font-medium uppercase tracking-wide">Contas demo</p>
-            <div className="space-y-0.5">
-              {mockUsers.map((u) => (
-                <button
-                  key={u.id}
-                  type="button"
-                  onClick={() => setEmail(u.email)}
-                  className="w-full text-left text-xs px-3 py-2 rounded-lg hover:bg-white/5 transition-colors flex items-center justify-between group"
-                >
-                  <span className="text-zinc-400 group-hover:text-zinc-200 transition-colors">{u.name}</span>
-                  <span className="text-zinc-600 group-hover:text-zinc-400 transition-colors">{u.email}</span>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
+
+        <p className="text-center text-xs text-zinc-600 mt-5">
+          Esqueceu sua senha? Entre em contato com o administrador.
+        </p>
       </div>
     </div>
   )

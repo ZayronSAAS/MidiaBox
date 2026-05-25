@@ -5,6 +5,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { LayoutDashboard, Users, LogOut, Menu, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { createClient } from "@/lib/supabase/client"
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -15,9 +16,11 @@ function NavLinks({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname()
   const router = useRouter()
 
-  function handleLogout() {
-    localStorage.removeItem("sd_user")
+  async function handleLogout() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
     router.push("/login")
+    router.refresh()
   }
 
   return (
