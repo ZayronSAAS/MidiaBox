@@ -5,18 +5,16 @@ import { useRouter } from "next/navigation"
 import { mockPosts } from "@/lib/mock-data"
 import { useClients } from "@/lib/clients-context"
 import { Client, Post, PostStatus } from "@/types"
-import { Calendar } from "@/components/gestor/calendar"
 import { PostModal } from "@/components/gestor/post-modal"
 import { Kanban } from "@/components/gestor/kanban"
+import { Lista } from "@/components/gestor/lista"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { statusConfig, networkConfig } from "@/lib/utils"
 import { ArrowLeft, Plus, Pencil, Trash2 } from "lucide-react"
-import { format } from "date-fns"
 import Link from "next/link"
 
 interface PageProps {
@@ -39,7 +37,6 @@ export default function ClientePage({ params }: PageProps) {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [newPostDate, setNewPostDate] = useState<Date | null>(null)
-  const [filterStatus, setFilterStatus] = useState<PostStatus | "all">("all")
 
   // Edit modal state
   const [editOpen, setEditOpen] = useState(false)
@@ -129,17 +126,7 @@ export default function ClientePage({ params }: PageProps) {
     setModalOpen(true)
   }
 
-  const filteredPosts = filterStatus === "all" ? posts : posts.filter((p) => p.status === filterStatus)
   const pendingCount = posts.filter((p) => p.status === "aprovacao").length
-
-  const statusFilters: Array<{ value: PostStatus | "all"; label: string }> = [
-    { value: "all", label: "Todos" },
-    { value: "ideia", label: "Ideias" },
-    { value: "rascunho", label: "Rascunhos" },
-    { value: "aprovacao", label: "Aprovação" },
-    { value: "agendado", label: "Agendados" },
-    { value: "publicado", label: "Publicados" },
-  ]
 
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto">
@@ -191,9 +178,8 @@ export default function ClientePage({ params }: PageProps) {
       <Tabs defaultValue="kanban">
         <TabsList className="mb-6 bg-slate-100 border-0">
           <TabsTrigger value="kanban" className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-500">Kanban</TabsTrigger>
-          <TabsTrigger value="calendario" className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-500">Calendário</TabsTrigger>
           <TabsTrigger value="lista" className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-500">Lista</TabsTrigger>
-          <TabsTrigger value="briefing" className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-500">Briefing</TabsTrigger>
+          <TabsTrigger value="informacoes" className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-500">Informações</TabsTrigger>
         </TabsList>
 
         <TabsContent value="kanban">
@@ -205,73 +191,17 @@ export default function ClientePage({ params }: PageProps) {
           />
         </TabsContent>
 
-        <TabsContent value="calendario">
-          <Calendar
+        <TabsContent value="lista">
+          <Lista
             posts={posts}
-            onPostClick={(post) => { setSelectedPost(post); setModalOpen(true) }}
-            onDayClick={(date) => openNewPost(date)}
+            onStatusChange={handleStatusChange}
+            onPostCreate={handleSave}
+            onPostUpdate={handlePostUpdate}
+            onPostDelete={handleDelete}
           />
         </TabsContent>
 
-        <TabsContent value="lista">
-          <div className="flex gap-2 mb-4 flex-wrap">
-            {statusFilters.map(({ value, label }) => (
-              <button
-                key={value}
-                onClick={() => setFilterStatus(value)}
-                className={`text-xs px-3 py-1.5 rounded-full border transition-colors font-medium ${
-                  filterStatus === value
-                    ? "bg-violet-600 text-white border-violet-600"
-                    : "border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
-                }`}
-              >
-                {label}
-                {value !== "all" && (
-                  <span className="ml-1.5 opacity-60">
-                    {posts.filter((p) => p.status === value).length}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-
-          <div className="space-y-2">
-            {filteredPosts.length === 0 && (
-              <div className="text-center py-12 text-slate-400">
-                <p>Nenhum post encontrado.</p>
-              </div>
-            )}
-            {filteredPosts
-              .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
-              .map((post) => (
-                <div
-                  key={post.id}
-                  onClick={() => { setSelectedPost(post); setModalOpen(true) }}
-                  className="bg-white rounded-xl border border-slate-200 px-5 py-4 flex items-center justify-between cursor-pointer hover:border-slate-300 hover:shadow-sm transition-all"
-                >
-                  <div className="flex items-center gap-4">
-                    <div>
-                      <p className="font-medium text-slate-900">{post.title}</p>
-                      <p className="text-sm text-slate-500 mt-0.5 max-w-md truncate">{post.caption}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 ml-4 flex-shrink-0">
-                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${networkConfig[post.network].color}`}>
-                      {networkConfig[post.network].label}
-                    </span>
-                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusConfig[post.status].color}`}>
-                      {statusConfig[post.status].label}
-                    </span>
-                    <span className="text-xs text-slate-400 tabular-nums">
-                      {format(new Date(post.scheduledAt), "dd/MM · HH:mm")}
-                    </span>
-                  </div>
-                </div>
-              ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="briefing">
+        <TabsContent value="informacoes">
           <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-5 max-w-2xl">
             <div>
               <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-1.5">Tom de voz</p>
@@ -291,6 +221,10 @@ export default function ClientePage({ params }: PageProps) {
                   </span>
                 ))}
               </div>
+            </div>
+            <div className="border-t border-slate-100 pt-4">
+              <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-1.5">Nicho</p>
+              <p className="text-slate-800 text-sm">{client.niche}</p>
             </div>
           </div>
         </TabsContent>

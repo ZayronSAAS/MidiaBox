@@ -7,7 +7,8 @@ import { statusConfig, networkConfig } from "@/lib/utils"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
-import { CheckCircle, XCircle, MessageCircle, Clock, Globe } from "lucide-react"
+import { CheckCircle, XCircle, MessageCircle, Clock, Globe, ImageIcon, Link2, FileText, X } from "lucide-react"
+import { PostAttachment } from "@/types"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { cn } from "@/lib/utils"
@@ -30,6 +31,9 @@ const columns: { id: PostStatus; label: string; color: string; bg: string; borde
 export function Kanban({ posts, onStatusChange, onPostUpdate, onPostDelete, authorName }: KanbanProps) {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const [comment, setComment] = useState("")
+  const [attachmentType, setAttachmentType] = useState<"image" | "link" | "note" | null>(null)
+  const [linkInput, setLinkInput] = useState("")
+  const [noteInput, setNoteInput] = useState("")
 
   function onDragEnd(result: DropResult) {
     if (!result.destination) return
@@ -44,8 +48,45 @@ export function Kanban({ posts, onStatusChange, onPostUpdate, onPostDelete, auth
   }
 
   function handleReject(post: Post) {
-    onStatusChange(post.id, "reprovado")
+    onStatusChange(post.id, "ideia")
     setSelectedPost(null)
+  }
+
+  function handleAddAttachment(post: Post, attachment: PostAttachment) {
+    const updated: Post = { ...post, attachments: [...(post.attachments ?? []), attachment] }
+    onPostUpdate(updated)
+    setSelectedPost(updated)
+  }
+
+  function handleRemoveAttachment(post: Post, attachmentId: string) {
+    const updated: Post = { ...post, attachments: (post.attachments ?? []).filter((a) => a.id !== attachmentId) }
+    onPostUpdate(updated)
+    setSelectedPost(updated)
+  }
+
+  function handleImageUpload(post: Post, e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      handleAddAttachment(post, { id: `a${Date.now()}`, type: "image", content: reader.result as string, name: file.name })
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ""
+  }
+
+  function handleAddLink(post: Post) {
+    if (!linkInput.trim()) return
+    handleAddAttachment(post, { id: `a${Date.now()}`, type: "link", content: linkInput })
+    setLinkInput("")
+    setAttachmentType(null)
+  }
+
+  function handleAddNote(post: Post) {
+    if (!noteInput.trim()) return
+    handleAddAttachment(post, { id: `a${Date.now()}`, type: "note", content: noteInput })
+    setNoteInput("")
+    setAttachmentType(null)
   }
 
   function handleComment(post: Post) {
@@ -128,7 +169,7 @@ export function Kanban({ posts, onStatusChange, onPostUpdate, onPostDelete, auth
                                     </button>
                                     <button
                                       onClick={(e) => { e.stopPropagation(); handleReject(post) }}
-                                      className="w-6 h-6 rounded-full bg-red-100 text-red-500 flex items-center justify-center hover:bg-red-200 transition-colors"
+                                      className="w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors shadow-sm"
                                       title="Reprovar"
                                     >
                                       <XCircle className="w-3.5 h-3.5" />
@@ -176,7 +217,7 @@ export function Kanban({ posts, onStatusChange, onPostUpdate, onPostDelete, auth
 
       {/* Post detail popup */}
       {selectedPost && (
-        <Dialog open={!!selectedPost} onOpenChange={() => { setSelectedPost(null); setComment("") }}>
+        <Dialog open={!!selectedPost} onOpenChange={() => { setSelectedPost(null); setComment(""); setAttachmentType(null); setLinkInput(""); setNoteInput("") }}>
           <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto bg-white text-slate-900 border-slate-200">
             <DialogHeader>
               <DialogTitle className="text-slate-900 text-base font-semibold pr-6">{selectedPost.title}</DialogTitle>
@@ -205,6 +246,112 @@ export function Kanban({ posts, onStatusChange, onPostUpdate, onPostDelete, auth
                 )}
               </div>
 
+              {/* Attachments */}
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Anexos</p>
+
+                {(selectedPost.attachments ?? []).length > 0 && (
+                  <div className="space-y-2">
+                    {selectedPost.attachments!.map((att) => (
+                      <div key={att.id}>
+                        {att.type === "image" ? (
+                          <div className="relative rounded-xl overflow-hidden border border-slate-200">
+                            <img src={att.content} alt={att.name ?? "Imagem"} className="w-full max-h-52 object-cover" />
+                            <button
+                              onClick={() => handleRemoveAttachment(selectedPost, att.id)}
+                              className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                            {att.name && (
+                              <div className="absolute bottom-0 left-0 right-0 bg-black/40 px-3 py-1.5">
+                                <p className="text-white text-[11px] truncate">{att.name}</p>
+                              </div>
+                            )}
+                          </div>
+                        ) : att.type === "link" ? (
+                          <div className="flex items-center gap-2 bg-green-50 rounded-lg px-3 py-2 border border-green-100">
+                            <Link2 className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+                            <a href={att.content} target="_blank" rel="noopener noreferrer" className="text-sm text-green-700 hover:underline flex-1 truncate">{att.content}</a>
+                            <button onClick={() => handleRemoveAttachment(selectedPost, att.id)} className="text-green-400 hover:text-red-500 transition-colors">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-start gap-2 bg-amber-50 rounded-lg px-3 py-2.5 border border-amber-100">
+                            <FileText className="w-3.5 h-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
+                            <p className="text-sm text-amber-800 flex-1 leading-relaxed">{att.content}</p>
+                            <button onClick={() => handleRemoveAttachment(selectedPost, att.id)} className="text-amber-400 hover:text-red-500 transition-colors flex-shrink-0">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {!attachmentType && (
+                  <div className="flex gap-2">
+                    <label className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-slate-500 border border-slate-200 rounded-lg px-3 py-2 cursor-pointer hover:bg-slate-50 transition-colors">
+                      <ImageIcon className="w-3.5 h-3.5" />
+                      Imagem
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(selectedPost, e)} />
+                    </label>
+                    <button onClick={() => setAttachmentType("link")} className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-slate-500 border border-slate-200 rounded-lg px-3 py-2 hover:bg-slate-50 transition-colors">
+                      <Link2 className="w-3.5 h-3.5" />
+                      Link
+                    </button>
+                    <button onClick={() => setAttachmentType("note")} className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-slate-500 border border-slate-200 rounded-lg px-3 py-2 hover:bg-slate-50 transition-colors">
+                      <FileText className="w-3.5 h-3.5" />
+                      Nota
+                    </button>
+                  </div>
+                )}
+
+                {attachmentType === "link" && (
+                  <div className="space-y-2">
+                    <input
+                      autoFocus
+                      placeholder="https://..."
+                      value={linkInput}
+                      onChange={(e) => setLinkInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleAddLink(selectedPost); if (e.key === "Escape") { setAttachmentType(null); setLinkInput("") } }}
+                      className="w-full text-sm px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={() => handleAddLink(selectedPost)} disabled={!linkInput.trim()} className="flex-1 text-xs" style={{ background: "linear-gradient(135deg, oklch(0.65 0.22 283), oklch(0.55 0.25 300))" }}>
+                        Adicionar link
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => { setAttachmentType(null); setLinkInput("") }} className="border-red-200 text-red-600 hover:bg-red-50 text-xs">
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {attachmentType === "note" && (
+                  <div className="space-y-2">
+                    <textarea
+                      autoFocus
+                      placeholder="Escreva uma nota ou instrução..."
+                      value={noteInput}
+                      onChange={(e) => setNoteInput(e.target.value)}
+                      rows={3}
+                      className="w-full text-sm px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none"
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={() => handleAddNote(selectedPost)} disabled={!noteInput.trim()} className="flex-1 text-xs" style={{ background: "linear-gradient(135deg, oklch(0.65 0.22 283), oklch(0.55 0.25 300))" }}>
+                        Adicionar nota
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => { setAttachmentType(null); setNoteInput("") }} className="border-red-200 text-red-600 hover:bg-red-50 text-xs">
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Approve/reject for aprovacao status */}
               {selectedPost.status === "aprovacao" && (
                 <div className="flex gap-2 p-3 bg-orange-50 rounded-xl border border-orange-100">
@@ -215,9 +362,8 @@ export function Kanban({ posts, onStatusChange, onPostUpdate, onPostDelete, auth
                     <CheckCircle className="w-4 h-4" /> Aprovar
                   </Button>
                   <Button
-                    variant="outline"
                     onClick={() => handleReject(selectedPost)}
-                    className="flex-1 text-red-600 border-red-200 hover:bg-red-50 gap-2 h-9 text-sm"
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white gap-2 h-9 text-sm font-semibold"
                   >
                     <XCircle className="w-4 h-4" /> Reprovar
                   </Button>

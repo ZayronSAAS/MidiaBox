@@ -31,6 +31,13 @@ export type PostStatus = "ideia" | "rascunho" | "aprovacao" | "agendado" | "publ
 
 export type PostNetwork = "instagram" | "tiktok" | "linkedin" | "facebook" | "twitter" | "youtube"
 
+export interface PostAttachment {
+  id: string
+  type: "image" | "link" | "note"
+  content: string   // base64 para imagem, URL para link, texto para nota
+  name?: string
+}
+
 export interface Post {
   id: string
   clientId: string
@@ -43,6 +50,7 @@ export interface Post {
   imageUrl?: string
   hashtags: string[]
   comments: PostComment[]
+  attachments?: PostAttachment[]
   createdAt: string
   updatedAt: string
 }

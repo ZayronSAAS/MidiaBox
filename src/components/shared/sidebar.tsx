@@ -3,13 +3,14 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { LayoutDashboard, Users, LogOut, Menu, X } from "lucide-react"
+import { LayoutDashboard, Users, LogOut, Menu, X, CalendarDays } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/clientes", label: "Clientes", icon: Users },
+  { href: "/dashboard",  label: "Dashboard",  icon: LayoutDashboard },
+  { href: "/clientes",   label: "Clientes",   icon: Users },
+  { href: "/calendario", label: "Calendário", icon: CalendarDays },
 ]
 
 function NavLinks({ onClose }: { onClose?: () => void }) {
