@@ -2,10 +2,12 @@
 
 import { use, useState } from "react"
 import { useRouter } from "next/navigation"
-import { mockClients, mockPosts } from "@/lib/mock-data"
-import { Client, Post, PostStatus, SocialNetwork } from "@/types"
+import { mockPosts } from "@/lib/mock-data"
+import { useClients } from "@/lib/clients-context"
+import { Client, Post, PostStatus } from "@/types"
 import { Calendar } from "@/components/gestor/calendar"
 import { PostModal } from "@/components/gestor/post-modal"
+import { Kanban } from "@/components/gestor/kanban"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -13,7 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { statusConfig, networkConfig } from "@/lib/utils"
-import { ArrowLeft, Plus, Pencil, Trash2, X } from "lucide-react"
+import { ArrowLeft, Plus, Pencil, Trash2 } from "lucide-react"
 import { format } from "date-fns"
 import Link from "next/link"
 
@@ -30,7 +32,8 @@ export default function ClientePage({ params }: PageProps) {
   const { id } = use(params)
   const router = useRouter()
 
-  const found = mockClients.find((c) => c.id === id)
+  const { clients, deleteClient: deleteClientCtx, updateClient: updateClientCtx } = useClients()
+  const found = clients.find((c) => c.id === id)
   const [client, setClient] = useState<Client | null>(found ?? null)
   const [posts, setPosts] = useState<Post[]>(mockPosts.filter((p) => p.clientId === id))
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
@@ -65,11 +68,13 @@ export default function ClientePage({ params }: PageProps) {
   }
 
   function handleEditSave() {
+    if (client) updateClientCtx(client.id, editForm)
     setClient((prev) => prev ? { ...prev, ...editForm } : prev)
     setEditOpen(false)
   }
 
   function handleDeleteClient() {
+    deleteClientCtx(id)
     router.push("/clientes")
   }
 
@@ -104,6 +109,18 @@ export default function ClientePage({ params }: PageProps) {
 
   function handleDelete(postId: string) {
     setPosts((prev) => prev.filter((p) => p.id !== postId))
+  }
+
+  function handleStatusChange(postId: string, status: PostStatus) {
+    setPosts((prev) => prev.map((p) =>
+      p.id === postId ? { ...p, status, updatedAt: new Date().toISOString() } : p
+    ))
+  }
+
+  function handlePostUpdate(data: Partial<Post>) {
+    if (data.id) {
+      setPosts((prev) => prev.map((p) => p.id === data.id ? { ...p, ...data } : p))
+    }
   }
 
   function openNewPost(date?: Date) {
@@ -171,12 +188,22 @@ export default function ClientePage({ params }: PageProps) {
         </div>
       </div>
 
-      <Tabs defaultValue="calendario">
+      <Tabs defaultValue="kanban">
         <TabsList className="mb-6 bg-slate-100 border-0">
+          <TabsTrigger value="kanban" className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-500">Kanban</TabsTrigger>
           <TabsTrigger value="calendario" className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-500">Calendário</TabsTrigger>
           <TabsTrigger value="lista" className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-500">Lista</TabsTrigger>
           <TabsTrigger value="briefing" className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-500">Briefing</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="kanban">
+          <Kanban
+            posts={posts}
+            onStatusChange={handleStatusChange}
+            onPostUpdate={handlePostUpdate}
+            onPostDelete={handleDelete}
+          />
+        </TabsContent>
 
         <TabsContent value="calendario">
           <Calendar

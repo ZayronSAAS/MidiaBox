@@ -1,28 +1,20 @@
 "use client"
 
 import Link from "next/link"
-import { mockClients, mockPosts } from "@/lib/mock-data"
-import { Card, CardContent } from "@/components/ui/card"
+import { mockPosts } from "@/lib/mock-data"
+import { useClients } from "@/lib/clients-context"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Plus, ArrowRight, Globe } from "lucide-react"
-
-const platformIcons: Record<string, React.ReactNode> = {
-  instagram: <Globe className="w-3.5 h-3.5" />,
-  linkedin: <Globe className="w-3.5 h-3.5" />,
-  tiktok: <Globe className="w-3.5 h-3.5" />,
-  facebook: <Globe className="w-3.5 h-3.5" />,
-  twitter: <Globe className="w-3.5 h-3.5" />,
-  youtube: <Globe className="w-3.5 h-3.5" />,
-}
+import { Plus, Globe } from "lucide-react"
 
 export default function ClientesPage() {
+  const { clients } = useClients()
+
   return (
     <div className="p-4 sm:p-8 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6 sm:mb-8 gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Clientes</h1>
-          <p className="text-slate-500 mt-0.5 text-sm">{mockClients.length} clientes ativos</p>
+          <p className="text-slate-500 mt-0.5 text-sm">{clients.length} clientes ativos</p>
         </div>
         <Link href="/clientes/novo">
           <Button className="gap-2 font-medium h-9"
@@ -34,8 +26,15 @@ export default function ClientesPage() {
         </Link>
       </div>
 
+      {clients.length === 0 && (
+        <div className="text-center py-20 text-slate-400">
+          <p className="text-lg font-medium text-slate-500 mb-1">Nenhum cliente cadastrado</p>
+          <p className="text-sm">Clique em "Novo cliente" para começar.</p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-        {mockClients.map((client) => {
+        {clients.map((client) => {
           const posts = mockPosts.filter((p) => p.clientId === client.id)
           const pending = posts.filter((p) => p.status === "aprovacao").length
           const published = posts.filter((p) => p.status === "publicado").length
@@ -55,10 +54,8 @@ export default function ClientesPage() {
                     </span>
                   )}
                 </div>
-
                 <h3 className="font-semibold text-slate-900">{client.name}</h3>
                 <p className="text-sm text-slate-500 mt-0.5">{client.niche}</p>
-
                 <div className="flex flex-wrap gap-1.5 mt-3">
                   {client.socialNetworks.map((sn) => (
                     <span key={sn.platform}
@@ -68,7 +65,6 @@ export default function ClientesPage() {
                     </span>
                   ))}
                 </div>
-
                 <div className="flex gap-5 mt-4 pt-4 border-t border-slate-100">
                   <div>
                     <p className="text-[11px] text-slate-400 uppercase tracking-wide">Publicados</p>
