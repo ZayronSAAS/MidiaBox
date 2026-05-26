@@ -1,9 +1,9 @@
 "use client"
 
-import { use, useState } from "react"
+import { use, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { mockPosts } from "@/lib/mock-data"
 import { useClients } from "@/lib/clients-context"
+import { getPostsByClient, createPost, updatePost, deletePost } from "@/lib/posts-service"
 import { Client, Post, PostStatus } from "@/types"
 import { PostModal } from "@/components/gestor/post-modal"
 import { Kanban } from "@/components/gestor/kanban"
@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowLeft, Plus, Pencil, Trash2 } from "lucide-react"
+import { ArrowLeft, Plus, Pencil, Trash2, Loader2 } from "lucide-react"
 import Link from "next/link"
 
 interface PageProps {
@@ -30,24 +30,45 @@ export default function ClientePage({ params }: PageProps) {
   const { id } = use(params)
   const router = useRouter()
 
-  const { clients, deleteClient: deleteClientCtx, updateClient: updateClientCtx } = useClients()
-  const found = clients.find((c) => c.id === id)
-  const [client, setClient] = useState<Client | null>(found ?? null)
-  const [posts, setPosts] = useState<Post[]>(mockPosts.filter((p) => p.clientId === id))
+  const { clients, loading: clientsLoading, deleteClient: deleteClientCtx, updateClient: updateClientCtx } = useClients()
+  const client = clients.find((c) => c.id === id) ?? null
+
+  const [posts, setPosts] = useState<Post[]>([])
+  const [postsLoading, setPostsLoading] = useState(true)
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
-  const [newPostDate, setNewPostDate] = useState<Date | null>(null)
 
   // Edit modal state
   const [editOpen, setEditOpen] = useState(false)
   const [editForm, setEditForm] = useState<Partial<Client>>({})
   const [deleteOpen, setDeleteOpen] = useState(false)
 
+  // Load posts from Supabase
+  useEffect(() => {
+    async function load() {
+      setPostsLoading(true)
+      const data = await getPostsByClient(id)
+      setPosts(data)
+      setPostsLoading(false)
+    }
+    load()
+  }, [id])
+
+  if (clientsLoading) {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-[300px]">
+        <Loader2 className="w-6 h-6 animate-spin text-violet-500" />
+      </div>
+    )
+  }
+
   if (!client) {
     return (
       <div className="p-8 text-center">
         <p className="text-slate-500">Cliente não encontrado.</p>
-        <Link href="/clientes"><Button variant="outline" className="mt-4">Voltar</Button></Link>
+        <Link href="/clientes">
+          <Button variant="outline" className="mt-4">Voltar</Button>
+        </Link>
       </div>
     )
   }
@@ -64,14 +85,13 @@ export default function ClientePage({ params }: PageProps) {
     setEditOpen(true)
   }
 
-  function handleEditSave() {
-    if (client) updateClientCtx(client.id, editForm)
-    setClient((prev) => prev ? { ...prev, ...editForm } : prev)
+  async function handleEditSave() {
+    await updateClientCtx(id, editForm)
     setEditOpen(false)
   }
 
-  function handleDeleteClient() {
-    deleteClientCtx(id)
+  async function handleDeleteClient() {
+    await deleteClientCtx(id)
     router.push("/clientes")
   }
 
@@ -83,12 +103,16 @@ export default function ClientePage({ params }: PageProps) {
     })
   }
 
-  function handleSave(data: Partial<Post>) {
+  async function handleSave(data: Partial<Post>) {
     if (data.id) {
-      setPosts((prev) => prev.map((p) => p.id === data.id ? { ...p, ...data, updatedAt: new Date().toISOString() } : p))
+      // Update existing
+      setPosts((prev) =>
+        prev.map((p) => (p.id === data.id ? { ...p, ...data, updatedAt: new Date().toISOString() } : p))
+      )
+      void updatePost(data.id, data)
     } else {
-      const newPost: Post = {
-        id: `p${Date.now()}`,
+      // Create new — await to get real ID from Supabase
+      const newPost = await createPost({
         clientId: id,
         title: data.title ?? "Novo post",
         caption: data.caption ?? "",
@@ -97,32 +121,35 @@ export default function ClientePage({ params }: PageProps) {
         scheduledAt: data.scheduledAt ?? new Date().toISOString(),
         hashtags: data.hashtags ?? [],
         comments: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        attachments: [],
+      })
+      if (newPost) {
+        setPosts((prev) => [...prev, newPost])
       }
-      setPosts((prev) => [...prev, newPost])
     }
   }
 
-  function handleDelete(postId: string) {
+  async function handleDelete(postId: string) {
     setPosts((prev) => prev.filter((p) => p.id !== postId))
+    void deletePost(postId)
   }
 
-  function handleStatusChange(postId: string, status: PostStatus) {
-    setPosts((prev) => prev.map((p) =>
-      p.id === postId ? { ...p, status, updatedAt: new Date().toISOString() } : p
-    ))
+  async function handleStatusChange(postId: string, status: PostStatus) {
+    setPosts((prev) =>
+      prev.map((p) => (p.id === postId ? { ...p, status, updatedAt: new Date().toISOString() } : p))
+    )
+    void updatePost(postId, { status })
   }
 
-  function handlePostUpdate(data: Partial<Post>) {
+  async function handlePostUpdate(data: Partial<Post>) {
     if (data.id) {
-      setPosts((prev) => prev.map((p) => p.id === data.id ? { ...p, ...data } : p))
+      setPosts((prev) => prev.map((p) => (p.id === data.id ? { ...p, ...data } : p)))
+      void updatePost(data.id, data)
     }
   }
 
-  function openNewPost(date?: Date) {
+  function openNewPost() {
     setSelectedPost(null)
-    setNewPostDate(date ?? null)
     setModalOpen(true)
   }
 
@@ -167,7 +194,7 @@ export default function ClientePage({ params }: PageProps) {
             <Trash2 className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Excluir</span>
           </button>
-          <Button onClick={() => openNewPost()} className="gap-2 h-9 font-medium"
+          <Button onClick={openNewPost} className="gap-2 h-9 font-medium"
             style={{ background: "linear-gradient(135deg, oklch(0.65 0.22 283), oklch(0.55 0.25 300))" }}>
             <Plus className="w-4 h-4" />
             Novo post
@@ -175,60 +202,69 @@ export default function ClientePage({ params }: PageProps) {
         </div>
       </div>
 
-      <Tabs defaultValue="kanban">
-        <TabsList className="mb-6 bg-slate-100 border-0">
-          <TabsTrigger value="kanban" className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-500">Kanban</TabsTrigger>
-          <TabsTrigger value="lista" className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-500">Lista</TabsTrigger>
-          <TabsTrigger value="informacoes" className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-500">Informações</TabsTrigger>
-        </TabsList>
+      {postsLoading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-5 h-5 animate-spin text-violet-500" />
+        </div>
+      ) : (
+        <Tabs defaultValue="kanban">
+          <TabsList className="mb-6 bg-slate-100 border-0">
+            <TabsTrigger value="kanban" className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-500">Kanban</TabsTrigger>
+            <TabsTrigger value="lista" className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-500">Lista</TabsTrigger>
+            <TabsTrigger value="informacoes" className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-500">Informações</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="kanban">
-          <Kanban
-            posts={posts}
-            onStatusChange={handleStatusChange}
-            onPostUpdate={handlePostUpdate}
-            onPostDelete={handleDelete}
-          />
-        </TabsContent>
+          <TabsContent value="kanban">
+            <Kanban
+              posts={posts}
+              onStatusChange={handleStatusChange}
+              onPostUpdate={handlePostUpdate}
+              onPostDelete={handleDelete}
+            />
+          </TabsContent>
 
-        <TabsContent value="lista">
-          <Lista
-            posts={posts}
-            onStatusChange={handleStatusChange}
-            onPostCreate={handleSave}
-            onPostUpdate={handlePostUpdate}
-            onPostDelete={handleDelete}
-          />
-        </TabsContent>
+          <TabsContent value="lista">
+            <Lista
+              posts={posts}
+              onStatusChange={handleStatusChange}
+              onPostCreate={handleSave}
+              onPostUpdate={handlePostUpdate}
+              onPostDelete={handleDelete}
+            />
+          </TabsContent>
 
-        <TabsContent value="informacoes">
-          <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-5 max-w-2xl">
-            <div>
-              <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-1.5">Tom de voz</p>
-              <p className="text-slate-800 text-sm">{client.toneOfVoice}</p>
-            </div>
-            <div className="border-t border-slate-100 pt-4">
-              <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-1.5">Briefing</p>
-              <p className="text-slate-800 text-sm leading-relaxed">{client.briefing}</p>
-            </div>
-            <div className="border-t border-slate-100 pt-4">
-              <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-2.5">Redes sociais</p>
-              <div className="flex gap-2 flex-wrap">
-                {client.socialNetworks.map((sn) => (
-                  <span key={sn.platform}
-                    className="bg-slate-100 text-slate-700 text-xs px-3 py-1.5 rounded-lg">
-                    {sn.handle}
-                  </span>
-                ))}
+          <TabsContent value="informacoes">
+            <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-5 max-w-2xl">
+              <div>
+                <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-1.5">Tom de voz</p>
+                <p className="text-slate-800 text-sm">{client.toneOfVoice || "—"}</p>
+              </div>
+              <div className="border-t border-slate-100 pt-4">
+                <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-1.5">Briefing</p>
+                <p className="text-slate-800 text-sm leading-relaxed">{client.briefing || "—"}</p>
+              </div>
+              <div className="border-t border-slate-100 pt-4">
+                <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-2.5">Redes sociais</p>
+                {client.socialNetworks.length > 0 ? (
+                  <div className="flex gap-2 flex-wrap">
+                    {client.socialNetworks.map((sn) => (
+                      <span key={sn.platform} className="bg-slate-100 text-slate-700 text-xs px-3 py-1.5 rounded-lg">
+                        {sn.handle}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-slate-400 text-sm">Nenhuma rede social cadastrada.</p>
+                )}
+              </div>
+              <div className="border-t border-slate-100 pt-4">
+                <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-1.5">Nicho</p>
+                <p className="text-slate-800 text-sm">{client.niche || "—"}</p>
               </div>
             </div>
-            <div className="border-t border-slate-100 pt-4">
-              <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-1.5">Nicho</p>
-              <p className="text-slate-800 text-sm">{client.niche}</p>
-            </div>
-          </div>
-        </TabsContent>
-      </Tabs>
+          </TabsContent>
+        </Tabs>
+      )}
 
       <PostModal
         open={modalOpen}
@@ -239,15 +275,13 @@ export default function ClientePage({ params }: PageProps) {
         clientId={id}
       />
 
-      {/* Modal de edição do cliente */}
+      {/* Modal de edição */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto bg-white text-slate-900 border-slate-200">
           <DialogHeader>
             <DialogTitle className="text-slate-900 text-base font-semibold">Editar cliente</DialogTitle>
           </DialogHeader>
-
           <div className="space-y-4 mt-2">
-            {/* Nome */}
             <div className="space-y-1.5">
               <Label className="text-xs text-slate-500 font-medium">Nome do cliente</Label>
               <Input
@@ -256,8 +290,6 @@ export default function ClientePage({ params }: PageProps) {
                 className="border-slate-200 bg-white text-slate-900 focus-visible:ring-violet-500/50"
               />
             </div>
-
-            {/* Nicho */}
             <div className="space-y-1.5">
               <Label className="text-xs text-slate-500 font-medium">Nicho / Segmento</Label>
               <Input
@@ -266,8 +298,6 @@ export default function ClientePage({ params }: PageProps) {
                 className="border-slate-200 bg-white text-slate-900 focus-visible:ring-violet-500/50"
               />
             </div>
-
-            {/* Cor */}
             <div className="space-y-1.5">
               <Label className="text-xs text-slate-500 font-medium">Cor do cliente</Label>
               <div className="flex items-center gap-3">
@@ -293,8 +323,6 @@ export default function ClientePage({ params }: PageProps) {
                 </div>
               </div>
             </div>
-
-            {/* Tom de voz */}
             <div className="space-y-1.5">
               <Label className="text-xs text-slate-500 font-medium">Tom de voz</Label>
               <Input
@@ -303,8 +331,6 @@ export default function ClientePage({ params }: PageProps) {
                 className="border-slate-200 bg-white text-slate-900 focus-visible:ring-violet-500/50"
               />
             </div>
-
-            {/* Briefing */}
             <div className="space-y-1.5">
               <Label className="text-xs text-slate-500 font-medium">Briefing</Label>
               <Textarea
@@ -314,8 +340,6 @@ export default function ClientePage({ params }: PageProps) {
                 className="resize-none border-slate-200 bg-white text-slate-900 focus-visible:ring-violet-500/50"
               />
             </div>
-
-            {/* Redes sociais */}
             {(editForm.socialNetworks ?? []).length > 0 && (
               <div className="space-y-2">
                 <Label className="text-xs text-slate-500 font-medium">Redes sociais</Label>
@@ -331,8 +355,6 @@ export default function ClientePage({ params }: PageProps) {
                 ))}
               </div>
             )}
-
-            {/* Botões */}
             <div className="flex gap-2 pt-2">
               <Button
                 onClick={handleEditSave}
@@ -353,7 +375,7 @@ export default function ClientePage({ params }: PageProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Modal de confirmação de exclusão */}
+      {/* Modal de exclusão */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="max-w-sm bg-white text-slate-900 border-slate-200">
           <DialogHeader>
@@ -361,7 +383,8 @@ export default function ClientePage({ params }: PageProps) {
           </DialogHeader>
           <div className="mt-2 space-y-4">
             <p className="text-sm text-slate-500">
-              Tem certeza que deseja excluir <span className="font-semibold text-slate-900">{client.name}</span>? Todos os posts e dados serão perdidos.
+              Tem certeza que deseja excluir <span className="font-semibold text-slate-900">{client.name}</span>?
+              Todos os posts e dados serão perdidos.
             </p>
             <div className="flex gap-2">
               <Button

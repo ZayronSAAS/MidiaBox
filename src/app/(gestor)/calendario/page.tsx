@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { mockPosts } from "@/lib/mock-data"
+import { useState, useEffect } from "react"
+import { getAllPosts } from "@/lib/posts-service"
 import { useClients } from "@/lib/clients-context"
 import { Post } from "@/types"
 import { statusConfig, networkConfig } from "@/lib/utils"
@@ -12,7 +12,7 @@ import {
   format, isSameMonth, isSameDay, isToday, addMonths, subMonths
 } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import { ChevronLeft, ChevronRight, Clock } from "lucide-react"
+import { ChevronLeft, ChevronRight, Clock, Loader2 } from "lucide-react"
 
 const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]
 
@@ -21,10 +21,21 @@ export default function CalendarioPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const [filterClientId, setFilterClientId] = useState<string>("all")
+  const [allPostsData, setAllPostsData] = useState<Post[]>([])
+  const [postsLoading, setPostsLoading] = useState(true)
+
+  useEffect(() => {
+    async function load() {
+      const data = await getAllPosts()
+      setAllPostsData(data)
+      setPostsLoading(false)
+    }
+    load()
+  }, [])
 
   const allPosts = filterClientId === "all"
-    ? mockPosts
-    : mockPosts.filter((p) => p.clientId === filterClientId)
+    ? allPostsData
+    : allPostsData.filter((p) => p.clientId === filterClientId)
 
   const monthStart = startOfMonth(currentMonth)
   const monthEnd = endOfMonth(currentMonth)
@@ -88,6 +99,12 @@ export default function CalendarioPage() {
 
       {/* Calendar */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        {postsLoading && (
+          <div className="flex items-center justify-center gap-2 py-3 border-b border-slate-100 text-xs text-slate-400">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            Carregando posts...
+          </div>
+        )}
         {/* Nav */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <h2 className="text-sm font-semibold text-slate-900 capitalize">
