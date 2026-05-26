@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import { Loader2 } from "lucide-react"
+import Link from "next/link"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -108,7 +109,10 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-xs text-zinc-600 mt-5">
-          Esqueceu sua senha? Entre em contato com o administrador.
+          Não tem conta?{" "}
+          <Link href="/cadastro" className="text-violet-400 hover:text-violet-300 transition-colors">
+            Cadastre-se
+          </Link>
         </p>
       </div>
     </div>

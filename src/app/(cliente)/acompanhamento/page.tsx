@@ -20,6 +20,7 @@ export default function AcompanhamentoPage() {
   const [userName, setUserName] = useState<string>("")
   const [posts, setPosts] = useState<Post[]>([])
   const [client, setClient] = useState(mockClients[0])
+  const [clientReady, setClientReady] = useState<boolean | null>(null) // null = loading
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const [comment, setComment] = useState("")
   const currentMonth = new Date()
@@ -30,10 +31,19 @@ export default function AcompanhamentoPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         setUserName(user.user_metadata?.name ?? user.email ?? "")
-        const clientId = user.user_metadata?.client_id ?? "c1"
-        const foundClient = mockClients.find((c) => c.id === clientId) ?? mockClients[0]
-        setClient(foundClient)
-        setPosts(mockPosts.filter((p) => p.clientId === clientId))
+        const clientId = user.user_metadata?.client_id
+        if (!clientId) {
+          setClientReady(false) // sem cliente vinculado
+          return
+        }
+        const foundClient = mockClients.find((c) => c.id === clientId)
+        if (foundClient) {
+          setClient(foundClient)
+          setPosts(mockPosts.filter((p) => p.clientId === clientId))
+          setClientReady(true)
+        } else {
+          setClientReady(false)
+        }
       }
     }
     loadUser()
@@ -92,6 +102,42 @@ export default function AcompanhamentoPage() {
         : p
     ))
     setComment("")
+  }
+
+  // Loading
+  if (clientReady === null) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="w-8 h-8 rounded-full border-2 border-violet-500 border-t-transparent animate-spin mx-auto mb-3" />
+          <p className="text-slate-400 text-sm">Carregando...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Conta sem cliente vinculado
+  if (clientReady === false) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center max-w-sm">
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+            style={{ background: "linear-gradient(135deg, oklch(0.65 0.22 283 / 15%), oklch(0.55 0.25 300 / 15%))" }}>
+            <Calendar className="w-7 h-7" style={{ color: "oklch(0.65 0.22 283)" }} />
+          </div>
+          <h2 className="text-lg font-bold text-slate-900 mb-2">Conta em configuração</h2>
+          <p className="text-slate-500 text-sm leading-relaxed mb-1">
+            Olá, <span className="font-semibold text-slate-700">{userName}</span>! Seu cadastro foi recebido com sucesso.
+          </p>
+          <p className="text-slate-400 text-sm leading-relaxed">
+            Nossa equipe está configurando seu acesso. Em breve você receberá uma notificação para acompanhar seus posts.
+          </p>
+          <div className="mt-5 bg-violet-50 border border-violet-100 rounded-xl px-4 py-3">
+            <p className="text-xs text-violet-600 font-medium">📱 Dúvidas? Entre em contato com sua agência.</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

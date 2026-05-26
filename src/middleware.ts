@@ -28,13 +28,14 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const { pathname } = request.nextUrl
 
-  // Se não autenticado e não está na página de login → redireciona para login
-  if (!user && !pathname.startsWith('/login')) {
+  // Se não autenticado e não está em rota pública → redireciona para login
+  const publicRoutes = ['/login', '/cadastro']
+  if (!user && !publicRoutes.some(r => pathname.startsWith(r))) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Se já autenticado e está na página de login → redireciona para área correta
-  if (user && pathname === '/login') {
+  // Se já autenticado e está na página de login ou cadastro → redireciona para área correta
+  if (user && (pathname === '/login' || pathname === '/cadastro')) {
     const role = user.user_metadata?.role
     return NextResponse.redirect(
       new URL(role === 'gestor' ? '/dashboard' : '/acompanhamento', request.url)
