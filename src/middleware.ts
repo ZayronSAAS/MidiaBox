@@ -27,31 +27,38 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
   const { pathname } = request.nextUrl
+  const role = user?.user_metadata?.role as string | undefined
 
-  // Se não autenticado e não está em rota pública → redireciona para login
+  // Rotas públicas — qualquer um pode acessar
   const publicRoutes = ['/login', '/cadastro']
-  if (!user && !publicRoutes.some(r => pathname.startsWith(r))) {
+  if (publicRoutes.some(r => pathname.startsWith(r))) {
+    // Se já autenticado, redireciona para a área correta
+    if (user) {
+      if (role === 'gestor') {
+        return NextResponse.redirect(new URL('/dashboard', request.url))
+      }
+      // cliente ou sem role → acompanhamento (que trata o caso sem client_id)
+      return NextResponse.redirect(new URL('/acompanhamento', request.url))
+    }
+    return supabaseResponse
+  }
+
+  // Usuário não autenticado em rota protegida → login
+  if (!user) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Se já autenticado e está na página de login ou cadastro → redireciona para área correta
-  if (user && (pathname === '/login' || pathname === '/cadastro')) {
-    const role = user.user_metadata?.role
-    return NextResponse.redirect(
-      new URL(role === 'gestor' ? '/dashboard' : '/acompanhamento', request.url)
-    )
-  }
-
-  // Protege rotas do gestor — cliente não pode acessar
-  if (user && (pathname.startsWith('/dashboard') || pathname.startsWith('/clientes'))) {
-    if (user.user_metadata?.role !== 'gestor') {
+  // Rotas exclusivas do gestor
+  if (pathname.startsWith('/dashboard') || pathname.startsWith('/clientes')) {
+    if (role !== 'gestor') {
+      // cliente ou sem role → acompanhamento
       return NextResponse.redirect(new URL('/acompanhamento', request.url))
     }
   }
 
-  // Protege rotas do cliente — gestor não pode acessar diretamente
-  if (user && pathname.startsWith('/acompanhamento')) {
-    if (user.user_metadata?.role !== 'cliente') {
+  // Rotas do cliente — só gestor é bloqueado (sem role pode acessar e vê tela de pendente)
+  if (pathname.startsWith('/acompanhamento')) {
+    if (role === 'gestor') {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
   }
