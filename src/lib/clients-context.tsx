@@ -27,6 +27,16 @@ function mapClient(row: Record<string, unknown>): Client {
     briefing: (row.briefing as string) ?? "",
     color: (row.color as string) ?? "#6366f1",
     createdAt: row.created_at as string,
+    responsibleName: (row.responsible_name as string) ?? "",
+    cityState: (row.city_state as string) ?? "",
+    reportDay: (row.report_day as string) ?? "",
+    contractValue: (row.contract_value as string) ?? "",
+    whatsapp: (row.whatsapp as string) ?? "",
+    email: (row.email as string) ?? "",
+    brandColors: (row.brand_colors as string[]) ?? [],
+    fixedHashtags: (row.fixed_hashtags as string) ?? "",
+    contentRestrictions: (row.content_restrictions as string) ?? "",
+    approvalFlow: (row.approval_flow as string) ?? "",
   }
 }
 
@@ -68,6 +78,16 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
     if (data.color !== undefined) update.color = data.color
     if (data.socialNetworks !== undefined) update.social_networks = data.socialNetworks
     if (data.slug !== undefined) update.slug = data.slug
+    if (data.responsibleName !== undefined) update.responsible_name = data.responsibleName
+    if (data.cityState !== undefined) update.city_state = data.cityState
+    if (data.reportDay !== undefined) update.report_day = data.reportDay
+    if (data.contractValue !== undefined) update.contract_value = data.contractValue
+    if (data.whatsapp !== undefined) update.whatsapp = data.whatsapp
+    if (data.email !== undefined) update.email = data.email
+    if (data.brandColors !== undefined) update.brand_colors = data.brandColors
+    if (data.fixedHashtags !== undefined) update.fixed_hashtags = data.fixedHashtags
+    if (data.contentRestrictions !== undefined) update.content_restrictions = data.contentRestrictions
+    if (data.approvalFlow !== undefined) update.approval_flow = data.approvalFlow
     await supabase.from("clients").update(update).eq("id", id)
     setClients((prev) =>
       prev.map((c) => (c.id === id ? { ...c, ...data } : c))

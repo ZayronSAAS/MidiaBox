@@ -19,6 +19,19 @@ export interface Client {
   briefing: string
   color: string
   createdAt: string
+  // Contact & business info
+  responsibleName?: string
+  cityState?: string
+  reportDay?: string
+  contractValue?: string
+  whatsapp?: string
+  email?: string
+  // Brand identity
+  brandColors?: string[]
+  fixedHashtags?: string
+  // Rules
+  contentRestrictions?: string
+  approvalFlow?: string
 }
 
 export interface SocialNetwork {
