@@ -62,6 +62,7 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
     const update: Record<string, unknown> = {}
     if (data.name !== undefined) update.name = data.name
     if (data.niche !== undefined) update.niche = data.niche
+    if (data.logo !== undefined) update.logo = data.logo ?? null
     if (data.toneOfVoice !== undefined) update.tone_of_voice = data.toneOfVoice
     if (data.briefing !== undefined) update.briefing = data.briefing
     if (data.color !== undefined) update.color = data.color
@@ -87,6 +88,7 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
         name: data.name,
         slug: data.slug || data.name.toLowerCase().replace(/\s+/g, "-"),
         niche: data.niche,
+        logo: data.logo ?? null,
         tone_of_voice: data.toneOfVoice,
         briefing: data.briefing,
         color: data.color,

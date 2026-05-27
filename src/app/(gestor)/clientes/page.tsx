@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useClients } from "@/lib/clients-context"
 import { getAllPosts } from "@/lib/posts-service"
 import { Post } from "@/types"
+import { ClientAvatar } from "@/components/gestor/client-avatar"
 import { Button } from "@/components/ui/button"
 import { Plus, Globe, Loader2 } from "lucide-react"
 
@@ -72,12 +73,7 @@ export default function ClientesPage() {
               <Link key={client.id} href={`/clientes/${client.id}`}>
                 <div className="bg-white rounded-xl border border-slate-200 p-5 hover:border-slate-300 hover:shadow-sm transition-all cursor-pointer h-full">
                   <div className="flex items-start justify-between mb-4">
-                    <div
-                      className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold text-base"
-                      style={{ backgroundColor: client.color }}
-                    >
-                      {client.name.charAt(0)}
-                    </div>
+                    <ClientAvatar name={client.name} color={client.color} logo={client.logo} size="lg" />
                     {pending > 0 && (
                       <span className="bg-orange-100 text-orange-700 text-xs font-medium px-2.5 py-1 rounded-full">
                         {pending} pendente{pending > 1 ? "s" : ""}

@@ -4,26 +4,34 @@ import { use, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useClients } from "@/lib/clients-context"
 import { getPostsByClient, createPost, updatePost, deletePost } from "@/lib/posts-service"
-import { Client, Post, PostStatus } from "@/types"
+import { Client, Post, PostStatus, SocialNetwork } from "@/types"
 import { PostModal } from "@/components/gestor/post-modal"
 import { Kanban } from "@/components/gestor/kanban"
 import { Lista } from "@/components/gestor/lista"
+import { ClientAvatar } from "@/components/gestor/client-avatar"
+import { SocialNetworkEditor } from "@/components/gestor/social-network-editor"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowLeft, Plus, Pencil, Trash2, Loader2 } from "lucide-react"
+import { ArrowLeft, Plus, Pencil, Trash2, Loader2, ImageIcon, Upload, X } from "lucide-react"
+import { cn } from "@/lib/utils"
 import Link from "next/link"
 
 interface PageProps {
   params: Promise<{ id: string }>
 }
 
-const colorPresets = [
+const COLOR_PRESETS = [
   "#6F4E37", "#E91E63", "#2E7D32", "#1565C0", "#F57C00",
   "#6A1B9A", "#00838F", "#AD1457", "#558B2F", "#4527A0",
+]
+
+const NICHE_PRESETS = [
+  "Farmácia", "Saúde", "Beleza", "Fitness", "Varejo",
+  "Clínica", "Restaurante", "Moda", "Educação",
 ]
 
 export default function ClientePage({ params }: PageProps) {
@@ -38,12 +46,20 @@ export default function ClientePage({ params }: PageProps) {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
 
-  // Edit modal state
+  // ── Edit modal state ──────────────────────────────────────────
   const [editOpen, setEditOpen] = useState(false)
-  const [editForm, setEditForm] = useState<Partial<Client>>({})
+  const [editName, setEditName] = useState("")
+  const [editLogo, setEditLogo] = useState<string | undefined>()
+  const [editColor, setEditColor] = useState("")
+  const [editNiches, setEditNiches] = useState<string[]>([])
+  const [editShowOther, setEditShowOther] = useState(false)
+  const [editOtherNiche, setEditOtherNiche] = useState("")
+  const [editToneOfVoice, setEditToneOfVoice] = useState("")
+  const [editBriefing, setEditBriefing] = useState("")
+  const [editSocialNetworks, setEditSocialNetworks] = useState<SocialNetwork[]>([])
   const [deleteOpen, setDeleteOpen] = useState(false)
 
-  // Load posts from Supabase
+  // ── Load posts ────────────────────────────────────────────────
   useEffect(() => {
     async function load() {
       setPostsLoading(true)
@@ -66,27 +82,58 @@ export default function ClientePage({ params }: PageProps) {
     return (
       <div className="p-8 text-center">
         <p className="text-slate-500">Cliente não encontrado.</p>
-        <Link href="/clientes">
-          <Button variant="outline" className="mt-4">Voltar</Button>
-        </Link>
+        <Link href="/clientes"><Button variant="outline" className="mt-4">Voltar</Button></Link>
       </div>
     )
   }
 
+  // ── Niche helpers ─────────────────────────────────────────────
+  function parseNiche(nicheStr: string) {
+    const parts = nicheStr.split(",").map((s) => s.trim()).filter(Boolean)
+    const known = parts.filter((p) => NICHE_PRESETS.includes(p))
+    const custom = parts.filter((p) => !NICHE_PRESETS.includes(p)).join(", ")
+    return { known, custom }
+  }
+
   function openEdit() {
-    setEditForm({
-      name: client!.name,
-      niche: client!.niche,
-      toneOfVoice: client!.toneOfVoice,
-      briefing: client!.briefing,
-      color: client!.color,
-      socialNetworks: client!.socialNetworks.map((sn) => ({ ...sn })),
-    })
+    const { known, custom } = parseNiche(client!.niche)
+    setEditName(client!.name)
+    setEditLogo(client!.logo)
+    setEditColor(client!.color)
+    setEditNiches(known)
+    setEditOtherNiche(custom)
+    setEditShowOther(!!custom)
+    setEditToneOfVoice(client!.toneOfVoice)
+    setEditBriefing(client!.briefing)
+    setEditSocialNetworks(client!.socialNetworks.map((sn) => ({ ...sn })))
     setEditOpen(true)
   }
 
+  function getEditNicheValue() {
+    const all = [...editNiches]
+    if (editShowOther && editOtherNiche.trim()) all.push(editOtherNiche.trim())
+    return all.join(", ")
+  }
+
+  function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setEditLogo(reader.result as string)
+    reader.readAsDataURL(file)
+    e.target.value = ""
+  }
+
   async function handleEditSave() {
-    await updateClientCtx(id, editForm)
+    await updateClientCtx(id, {
+      name: editName.trim(),
+      logo: editLogo,
+      color: editColor,
+      niche: getEditNicheValue(),
+      toneOfVoice: editToneOfVoice,
+      briefing: editBriefing,
+      socialNetworks: editSocialNetworks,
+    })
     setEditOpen(false)
   }
 
@@ -95,23 +142,12 @@ export default function ClientePage({ params }: PageProps) {
     router.push("/clientes")
   }
 
-  function updateSocialHandle(index: number, handle: string) {
-    setEditForm((prev) => {
-      const nets = [...(prev.socialNetworks ?? [])]
-      nets[index] = { ...nets[index], handle }
-      return { ...prev, socialNetworks: nets }
-    })
-  }
-
+  // ── Post CRUD ─────────────────────────────────────────────────
   async function handleSave(data: Partial<Post>) {
     if (data.id) {
-      // Update existing
-      setPosts((prev) =>
-        prev.map((p) => (p.id === data.id ? { ...p, ...data, updatedAt: new Date().toISOString() } : p))
-      )
+      setPosts((prev) => prev.map((p) => (p.id === data.id ? { ...p, ...data, updatedAt: new Date().toISOString() } : p)))
       void updatePost(data.id, data)
     } else {
-      // Create new — await to get real ID from Supabase
       const newPost = await createPost({
         clientId: id,
         title: data.title ?? "Novo post",
@@ -123,9 +159,7 @@ export default function ClientePage({ params }: PageProps) {
         comments: [],
         attachments: [],
       })
-      if (newPost) {
-        setPosts((prev) => [...prev, newPost])
-      }
+      if (newPost) setPosts((prev) => [...prev, newPost])
     }
   }
 
@@ -135,9 +169,7 @@ export default function ClientePage({ params }: PageProps) {
   }
 
   async function handleStatusChange(postId: string, status: PostStatus) {
-    setPosts((prev) =>
-      prev.map((p) => (p.id === postId ? { ...p, status, updatedAt: new Date().toISOString() } : p))
-    )
+    setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, status, updatedAt: new Date().toISOString() } : p)))
     void updatePost(postId, { status })
   }
 
@@ -148,31 +180,21 @@ export default function ClientePage({ params }: PageProps) {
     }
   }
 
-  function openNewPost() {
-    setSelectedPost(null)
-    setModalOpen(true)
-  }
-
   const pendingCount = posts.filter((p) => p.status === "aprovacao").length
 
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto">
-      {/* Header */}
+      {/* ── Header ── */}
       <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-6 sm:mb-7">
         <Link href="/clientes">
           <button className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
             <ArrowLeft className="w-4 h-4" />
           </button>
         </Link>
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm"
-          style={{ backgroundColor: client.color }}
-        >
-          {client.name.charAt(0)}
-        </div>
+        <ClientAvatar name={client.name} color={client.color} logo={client.logo} size="lg" />
         <div>
           <h1 className="text-lg font-bold text-slate-900 leading-tight">{client.name}</h1>
-          <p className="text-xs text-slate-500">{client.niche}</p>
+          <p className="text-xs text-slate-500">{client.niche || "—"}</p>
         </div>
         {pendingCount > 0 && (
           <span className="bg-orange-100 text-orange-700 text-xs font-medium px-3 py-1 rounded-full ml-1">
@@ -180,21 +202,17 @@ export default function ClientePage({ params }: PageProps) {
           </span>
         )}
         <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
-          <button
-            onClick={openEdit}
-            className="flex items-center gap-1.5 sm:gap-2 text-sm font-medium text-slate-600 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 px-2.5 sm:px-3 py-2 rounded-lg transition-colors"
-          >
+          <button onClick={openEdit}
+            className="flex items-center gap-1.5 sm:gap-2 text-sm font-medium text-slate-600 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 px-2.5 sm:px-3 py-2 rounded-lg transition-colors">
             <Pencil className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Editar</span>
           </button>
-          <button
-            onClick={() => setDeleteOpen(true)}
-            className="flex items-center gap-1.5 sm:gap-2 text-sm font-medium text-red-500 border border-red-200 hover:bg-red-50 px-2.5 sm:px-3 py-2 rounded-lg transition-colors"
-          >
+          <button onClick={() => setDeleteOpen(true)}
+            className="flex items-center gap-1.5 sm:gap-2 text-sm font-medium text-red-500 border border-red-200 hover:bg-red-50 px-2.5 sm:px-3 py-2 rounded-lg transition-colors">
             <Trash2 className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Excluir</span>
           </button>
-          <Button onClick={openNewPost} className="gap-2 h-9 font-medium"
+          <Button onClick={() => { setSelectedPost(null); setModalOpen(true) }} className="gap-2 h-9 font-medium"
             style={{ background: "linear-gradient(135deg, oklch(0.65 0.22 283), oklch(0.55 0.25 300))" }}>
             <Plus className="w-4 h-4" />
             Novo post
@@ -202,6 +220,7 @@ export default function ClientePage({ params }: PageProps) {
         </div>
       </div>
 
+      {/* ── Tabs ── */}
       {postsLoading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-5 h-5 animate-spin text-violet-500" />
@@ -213,26 +232,12 @@ export default function ClientePage({ params }: PageProps) {
             <TabsTrigger value="lista" className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-500">Lista</TabsTrigger>
             <TabsTrigger value="informacoes" className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-500">Informações</TabsTrigger>
           </TabsList>
-
           <TabsContent value="kanban">
-            <Kanban
-              posts={posts}
-              onStatusChange={handleStatusChange}
-              onPostUpdate={handlePostUpdate}
-              onPostDelete={handleDelete}
-            />
+            <Kanban posts={posts} onStatusChange={handleStatusChange} onPostUpdate={handlePostUpdate} onPostDelete={handleDelete} />
           </TabsContent>
-
           <TabsContent value="lista">
-            <Lista
-              posts={posts}
-              onStatusChange={handleStatusChange}
-              onPostCreate={handleSave}
-              onPostUpdate={handlePostUpdate}
-              onPostDelete={handleDelete}
-            />
+            <Lista posts={posts} onStatusChange={handleStatusChange} onPostCreate={handleSave} onPostUpdate={handlePostUpdate} onPostDelete={handleDelete} />
           </TabsContent>
-
           <TabsContent value="informacoes">
             <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-5 max-w-2xl">
               <div>
@@ -266,108 +271,134 @@ export default function ClientePage({ params }: PageProps) {
         </Tabs>
       )}
 
-      <PostModal
-        open={modalOpen}
-        post={selectedPost}
+      <PostModal open={modalOpen} post={selectedPost}
         onClose={() => { setModalOpen(false); setSelectedPost(null) }}
-        onSave={handleSave}
-        onDelete={handleDelete}
-        clientId={id}
-      />
+        onSave={handleSave} onDelete={handleDelete} clientId={id} />
 
-      {/* Modal de edição */}
+      {/* ── Edit modal ── */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto bg-white text-slate-900 border-slate-200">
           <DialogHeader>
             <DialogTitle className="text-slate-900 text-base font-semibold">Editar cliente</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 mt-2">
+
+          <div className="space-y-5 mt-2">
+            {/* ── Logo ── */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-slate-500 font-medium">Logo do cliente</Label>
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0 bg-slate-50">
+                  {editLogo ? (
+                    <img src={editLogo} alt="Logo" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="text-center px-1">
+                      <ImageIcon className="w-5 h-5 text-slate-300 mx-auto" />
+                      <p className="text-[9px] text-slate-300 mt-0.5 leading-tight">sem logo</p>
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600 border border-slate-200 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-slate-50 transition-colors w-fit">
+                    <Upload className="w-3.5 h-3.5" />
+                    {editLogo ? "Trocar logo" : "Enviar logo"}
+                    <input type="file" accept=".png,.jpg,.jpeg,.svg,image/*" className="hidden" onChange={handleLogoUpload} />
+                  </label>
+                  {editLogo && (
+                    <button type="button" onClick={() => setEditLogo(undefined)}
+                      className="flex items-center gap-1.5 text-xs font-medium text-red-500 border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors w-fit">
+                      <X className="w-3.5 h-3.5" />
+                      Remover logo
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* ── Nome ── */}
             <div className="space-y-1.5">
               <Label className="text-xs text-slate-500 font-medium">Nome do cliente</Label>
-              <Input
-                value={editForm.name ?? ""}
-                onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))}
-                className="border-slate-200 bg-white text-slate-900 focus-visible:ring-violet-500/50"
-              />
+              <Input value={editName} onChange={(e) => setEditName(e.target.value)}
+                className="border-slate-200 bg-white text-slate-900 focus-visible:ring-violet-500/50" />
             </div>
-            <div className="space-y-1.5">
+
+            {/* ── Nicho (tags) ── */}
+            <div className="space-y-2">
               <Label className="text-xs text-slate-500 font-medium">Nicho / Segmento</Label>
-              <Input
-                value={editForm.niche ?? ""}
-                onChange={(e) => setEditForm((p) => ({ ...p, niche: e.target.value }))}
-                className="border-slate-200 bg-white text-slate-900 focus-visible:ring-violet-500/50"
-              />
+              <div className="flex gap-1.5 flex-wrap">
+                {NICHE_PRESETS.map((n) => (
+                  <button key={n} type="button"
+                    onClick={() => setEditNiches((prev) => prev.includes(n) ? prev.filter((x) => x !== n) : [...prev, n])}
+                    className={cn(
+                      "text-xs px-3 py-1.5 rounded-full border font-medium transition-colors",
+                      editNiches.includes(n)
+                        ? "text-white border-transparent"
+                        : "border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                    )}
+                    style={editNiches.includes(n) ? { backgroundColor: editColor, borderColor: editColor } : {}}
+                  >
+                    {n}
+                  </button>
+                ))}
+                <button type="button"
+                  onClick={() => setEditShowOther((v) => { if (v) setEditOtherNiche(""); return !v })}
+                  className={cn(
+                    "text-xs px-3 py-1.5 rounded-full border font-medium transition-colors",
+                    editShowOther ? "bg-slate-800 text-white border-slate-800" : "border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                  )}>
+                  Outro
+                </button>
+              </div>
+              {editShowOther && (
+                <Input value={editOtherNiche} onChange={(e) => setEditOtherNiche(e.target.value)}
+                  placeholder="Digite o nicho personalizado..."
+                  className="border-slate-200 bg-white text-slate-900 focus-visible:ring-violet-500/50 text-sm mt-1" />
+              )}
             </div>
+
+            {/* ── Cor ── */}
             <div className="space-y-1.5">
               <Label className="text-xs text-slate-500 font-medium">Cor do cliente</Label>
               <div className="flex items-center gap-3">
-                <input
-                  type="color"
-                  value={editForm.color ?? "#6F4E37"}
-                  onChange={(e) => setEditForm((p) => ({ ...p, color: e.target.value }))}
-                  className="w-10 h-10 rounded-lg border border-slate-200 cursor-pointer p-0.5 bg-white"
-                />
+                <input type="color" value={editColor} onChange={(e) => setEditColor(e.target.value)}
+                  className="w-10 h-10 rounded-lg border border-slate-200 cursor-pointer p-0.5 bg-white" />
                 <div className="flex gap-1.5 flex-wrap">
-                  {colorPresets.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setEditForm((p) => ({ ...p, color: c }))}
+                  {COLOR_PRESETS.map((c) => (
+                    <button key={c} type="button" onClick={() => setEditColor(c)}
                       className="w-6 h-6 rounded-full border-2 transition-all hover:scale-110"
-                      style={{
-                        backgroundColor: c,
-                        borderColor: editForm.color === c ? "#7c3aed" : "transparent",
-                      }}
-                    />
+                      style={{ backgroundColor: c, borderColor: editColor === c ? "#7c3aed" : "transparent" }} />
                   ))}
                 </div>
               </div>
             </div>
+
+            {/* ── Tom de voz ── */}
             <div className="space-y-1.5">
               <Label className="text-xs text-slate-500 font-medium">Tom de voz</Label>
-              <Input
-                value={editForm.toneOfVoice ?? ""}
-                onChange={(e) => setEditForm((p) => ({ ...p, toneOfVoice: e.target.value }))}
-                className="border-slate-200 bg-white text-slate-900 focus-visible:ring-violet-500/50"
-              />
+              <Input value={editToneOfVoice} onChange={(e) => setEditToneOfVoice(e.target.value)}
+                className="border-slate-200 bg-white text-slate-900 focus-visible:ring-violet-500/50" />
             </div>
+
+            {/* ── Briefing ── */}
             <div className="space-y-1.5">
               <Label className="text-xs text-slate-500 font-medium">Briefing</Label>
-              <Textarea
-                value={editForm.briefing ?? ""}
-                onChange={(e) => setEditForm((p) => ({ ...p, briefing: e.target.value }))}
-                rows={3}
-                className="resize-none border-slate-200 bg-white text-slate-900 focus-visible:ring-violet-500/50"
-              />
+              <Textarea value={editBriefing} onChange={(e) => setEditBriefing(e.target.value)}
+                rows={3} className="resize-none border-slate-200 bg-white text-slate-900 focus-visible:ring-violet-500/50" />
             </div>
-            {(editForm.socialNetworks ?? []).length > 0 && (
-              <div className="space-y-2">
-                <Label className="text-xs text-slate-500 font-medium">Redes sociais</Label>
-                {(editForm.socialNetworks ?? []).map((sn, i) => (
-                  <div key={sn.platform} className="flex items-center gap-2">
-                    <span className="text-xs text-slate-400 capitalize w-20 flex-shrink-0">{sn.platform}</span>
-                    <Input
-                      value={sn.handle}
-                      onChange={(e) => updateSocialHandle(i, e.target.value)}
-                      className="border-slate-200 bg-white text-slate-900 focus-visible:ring-violet-500/50 text-sm"
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
+
+            {/* ── Redes sociais ── */}
+            <div className="space-y-2">
+              <Label className="text-xs text-slate-500 font-medium">Redes sociais</Label>
+              <SocialNetworkEditor value={editSocialNetworks} onChange={setEditSocialNetworks} />
+            </div>
+
+            {/* ── Buttons ── */}
             <div className="flex gap-2 pt-2">
-              <Button
-                onClick={handleEditSave}
-                className="flex-1 font-semibold"
-                style={{ background: "linear-gradient(135deg, oklch(0.65 0.22 283), oklch(0.55 0.25 300))" }}
-              >
+              <Button onClick={handleEditSave} className="flex-1 font-semibold"
+                style={{ background: "linear-gradient(135deg, oklch(0.65 0.22 283), oklch(0.55 0.25 300))" }}>
                 Salvar alterações
               </Button>
-              <Button
-                variant="outline"
-                onClick={() => setEditOpen(false)}
-                className="border-red-200 text-red-600 hover:bg-red-50"
-              >
+              <Button variant="outline" onClick={() => setEditOpen(false)}
+                className="border-red-200 text-red-600 hover:bg-red-50">
                 Cancelar
               </Button>
             </div>
@@ -375,7 +406,7 @@ export default function ClientePage({ params }: PageProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Modal de exclusão */}
+      {/* ── Delete confirmation ── */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="max-w-sm bg-white text-slate-900 border-slate-200">
           <DialogHeader>
@@ -387,18 +418,12 @@ export default function ClientePage({ params }: PageProps) {
               Todos os posts e dados serão perdidos.
             </p>
             <div className="flex gap-2">
-              <Button
-                onClick={handleDeleteClient}
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold"
-              >
+              <Button onClick={handleDeleteClient} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold">
                 <Trash2 className="w-4 h-4 mr-2" />
                 Excluir cliente
               </Button>
-              <Button
-                variant="outline"
-                onClick={() => setDeleteOpen(false)}
-                className="flex-1 border-slate-200 text-slate-600 hover:bg-slate-50"
-              >
+              <Button variant="outline" onClick={() => setDeleteOpen(false)}
+                className="flex-1 border-slate-200 text-slate-600 hover:bg-slate-50">
                 Cancelar
               </Button>
             </div>

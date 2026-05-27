@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useClients } from "@/lib/clients-context"
 import { getAllPosts } from "@/lib/posts-service"
 import { Post } from "@/types"
+import { ClientAvatar } from "@/components/gestor/client-avatar"
 import { Button } from "@/components/ui/button"
 import { statusConfig } from "@/lib/utils"
 import { Users, FileText, Clock, CheckCircle, Plus, ArrowRight, Loader2 } from "lucide-react"
@@ -160,12 +161,7 @@ export default function DashboardPage() {
                     className="px-5 py-3.5 flex items-center justify-between hover:bg-slate-50 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <div
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                        style={{ backgroundColor: client.color }}
-                      >
-                        {client.name.charAt(0)}
-                      </div>
+                      <ClientAvatar name={client.name} color={client.color} logo={client.logo} size="sm" />
                       <div>
                         <p className="text-sm font-medium text-slate-900">{client.name}</p>
                         <p className="text-xs text-slate-500">{client.niche || "—"}</p>
