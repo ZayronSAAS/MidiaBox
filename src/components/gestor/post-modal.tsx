@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Post, PostStatus, PostNetwork } from "@/types"
+import { Post, PostStatus, PostNetwork, PostFormat } from "@/types"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,6 +23,12 @@ interface PostModalProps {
 
 const networks: PostNetwork[] = ["instagram", "tiktok", "linkedin", "facebook", "twitter", "youtube"]
 const statuses: PostStatus[] = ["ideia", "rascunho", "aprovacao", "agendado", "publicado", "reprovado"]
+const formats: { value: PostFormat; label: string }[] = [
+  { value: "foto",      label: "📷 Foto" },
+  { value: "reels",     label: "🎬 Reels" },
+  { value: "carrossel", label: "🖼️ Carrossel" },
+  { value: "stories",   label: "⚡ Stories" },
+]
 
 export function PostModal({ post, open, onClose, onSave, onDelete, clientId, viewOnly = false }: PostModalProps) {
   const isNew = !post
@@ -34,6 +40,7 @@ export function PostModal({ post, open, onClose, onSave, onDelete, clientId, vie
   const [scheduledAt, setScheduledAt] = useState(
     post?.scheduledAt ? format(new Date(post.scheduledAt), "yyyy-MM-dd'T'HH:mm") : ""
   )
+  const [postFormat, setPostFormat] = useState<PostFormat>(post?.format ?? "foto")
   const [hashtags, setHashtags] = useState(post?.hashtags?.join(" ") ?? "")
   const [comment, setComment] = useState("")
 
@@ -46,6 +53,7 @@ export function PostModal({ post, open, onClose, onSave, onDelete, clientId, vie
       network,
       status,
       scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : new Date().toISOString(),
+      format: postFormat,
       hashtags: hashtags.split(/\s+/).filter(Boolean),
     })
     onClose()
@@ -88,6 +96,23 @@ export function PostModal({ post, open, onClose, onSave, onDelete, clientId, vie
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Formato</Label>
+                <div className="flex gap-2 flex-wrap">
+                  {formats.map(f => (
+                    <button key={f.value} type="button"
+                      onClick={() => setPostFormat(f.value)}
+                      className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
+                        postFormat === f.value
+                          ? "bg-violet-600 text-white border-violet-600"
+                          : "border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                      }`}>
+                      {f.label}
+                    </button>
+                  ))}
                 </div>
               </div>
 

@@ -32,6 +32,8 @@ export interface Client {
   // Rules
   contentRestrictions?: string
   approvalFlow?: string
+  // Planning
+  postsPerWeek?: number
 }
 
 export interface SocialNetwork {
@@ -44,10 +46,12 @@ export type PostStatus = "ideia" | "rascunho" | "aprovacao" | "agendado" | "publ
 
 export type PostNetwork = "instagram" | "tiktok" | "linkedin" | "facebook" | "twitter" | "youtube"
 
+export type PostFormat = "reels" | "carrossel" | "foto" | "stories"
+
 export interface PostAttachment {
   id: string
   type: "image" | "link" | "note"
-  content: string   // base64 para imagem, URL para link, texto para nota
+  content: string
   name?: string
 }
 
@@ -57,6 +61,7 @@ export interface Post {
   title: string
   caption: string
   network: PostNetwork
+  format?: PostFormat
   status: PostStatus
   scheduledAt: string
   publishedAt?: string
@@ -81,4 +86,26 @@ export interface PostComment {
 export interface CalendarDay {
   date: Date
   posts: Post[]
+}
+
+export interface Task {
+  id: string
+  clientId: string | null
+  text: string
+  done: boolean
+  date: string      // "YYYY-MM-DD"
+  createdAt: string
+}
+
+export interface ClientMetric {
+  id: string
+  clientId: string
+  month: number      // 1–12
+  year: number
+  reach: number
+  engagementRate: number   // e.g. 3.5 = 3.5%
+  followerGrowth: number   // e.g. 2.1 = 2.1%
+  postsPlanned: number
+  postsPublished: number
+  createdAt: string
 }

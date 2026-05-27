@@ -15,6 +15,7 @@ function mapPost(row: Record<string, unknown>): Post {
     hashtags: (row.hashtags as string[]) ?? [],
     comments: (row.comments as Post["comments"]) ?? [],
     attachments: (row.attachments as Post["attachments"]) ?? [],
+    format: (row.format as Post["format"]) ?? "foto",
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   }
@@ -63,6 +64,7 @@ export async function createPost(
       hashtags: post.hashtags,
       comments: post.comments ?? [],
       attachments: post.attachments ?? [],
+      format: post.format ?? "foto",
     })
     .select()
     .single()
@@ -82,6 +84,7 @@ export async function updatePost(id: string, updates: Partial<Post>): Promise<vo
   if (updates.hashtags !== undefined) update.hashtags = updates.hashtags
   if (updates.comments !== undefined) update.comments = updates.comments
   if (updates.attachments !== undefined) update.attachments = updates.attachments
+  if (updates.format !== undefined) update.format = updates.format
   await supabase.from("posts").update(update).eq("id", id)
 }
 

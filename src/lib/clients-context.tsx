@@ -37,6 +37,7 @@ function mapClient(row: Record<string, unknown>): Client {
     fixedHashtags: (row.fixed_hashtags as string) ?? "",
     contentRestrictions: (row.content_restrictions as string) ?? "",
     approvalFlow: (row.approval_flow as string) ?? "",
+    postsPerWeek: (row.posts_per_week as number) ?? 4,
   }
 }
 
@@ -88,6 +89,7 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
     if (data.fixedHashtags !== undefined) update.fixed_hashtags = data.fixedHashtags
     if (data.contentRestrictions !== undefined) update.content_restrictions = data.contentRestrictions
     if (data.approvalFlow !== undefined) update.approval_flow = data.approvalFlow
+    if (data.postsPerWeek !== undefined) update.posts_per_week = data.postsPerWeek
     await supabase.from("clients").update(update).eq("id", id)
     setClients((prev) =>
       prev.map((c) => (c.id === id ? { ...c, ...data } : c))
