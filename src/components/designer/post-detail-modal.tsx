@@ -6,18 +6,9 @@ import { updatePost } from "@/lib/posts-service"
 import { networkConfig } from "@/lib/utils"
 import type { Post, PostAttachment, PostComment } from "@/types"
 import {
-  X,
-  Link2,
-  FileText,
-  Send,
-  Loader2,
-  ImageOff,
-  Calendar,
-  Hash,
-  MessageSquare,
-  Paperclip,
-  ExternalLink,
-  PlusCircle,
+  X, Link2, FileText, Send, Loader2, ImageOff,
+  Calendar, Hash, MessageSquare, Paperclip,
+  ExternalLink, PlusCircle, ImagePlus, Upload,
 } from "lucide-react"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -35,41 +26,90 @@ const formatLabels: Record<string, string> = {
   stories:   "⚡ Stories",
 }
 
-type AttachmentTab = "link" | "note"
+type AttachmentTab = "note" | "link" | "image"
 
 export function PostDetailModal({ post, onClose, onPostUpdated }: PostDetailModalProps) {
   const backdropRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Comment state
-  const [commentText, setCommentText]   = useState("")
+  const [commentText, setCommentText]       = useState("")
   const [sendingComment, setSendingComment] = useState(false)
 
-  // Attachment state
-  const [attachTab, setAttachTab]       = useState<AttachmentTab>("note")
-  const [attachContent, setAttachContent] = useState("")
-  const [attachName, setAttachName]     = useState("")
-  const [savingAttach, setSavingAttach] = useState(false)
+  const [attachTab, setAttachTab]           = useState<AttachmentTab>("note")
+  const [attachContent, setAttachContent]   = useState("")
+  const [attachName, setAttachName]         = useState("")
+  const [imagePreview, setImagePreview]     = useState<string | null>(null)
+  const [savingAttach, setSavingAttach]     = useState(false)
 
-  const [currentPost, setCurrentPost]   = useState<Post>(post)
+  const [currentPost, setCurrentPost]       = useState<Post>(post)
 
-  // Close on backdrop click
+  // Última imagem enviada como anexo (admin ou designer)
+  const lastImageAttachment = [...(currentPost.attachments ?? [])]
+    .reverse()
+    .find(a => a.type === "image")
+
+  // Imagem principal: imageUrl do post OU última imagem de anexo
+  const heroImage = currentPost.imageUrl ?? lastImageAttachment?.content ?? null
+
   function handleBackdrop(e: React.MouseEvent) {
     if (e.target === backdropRef.current) onClose()
   }
 
-  // Close on Escape
   useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose()
-    }
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose() }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [onClose])
+
+  // Limpa preview ao trocar de aba
+  useEffect(() => {
+    setAttachContent("")
+    setAttachName("")
+    setImagePreview(null)
+  }, [attachTab])
 
   async function getCurrentUser() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     return user
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Imagem muito grande. Máximo 5 MB.")
+      return
+    }
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      const base64 = reader.result as string
+      setAttachContent(base64)
+      setImagePreview(base64)
+      if (!attachName) setAttachName(file.name)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  async function handleAddAttachment() {
+    if (!attachContent.trim()) return
+    setSavingAttach(true)
+    const newAttachment: PostAttachment = {
+      id: crypto.randomUUID(),
+      type: attachTab,
+      content: attachContent,
+      name: attachName.trim() || undefined,
+    }
+    const updatedAttachments = [...(currentPost.attachments ?? []), newAttachment]
+    await updatePost(currentPost.id, { attachments: updatedAttachments })
+    const updated = { ...currentPost, attachments: updatedAttachments }
+    setCurrentPost(updated)
+    onPostUpdated(updated)
+    setAttachContent("")
+    setAttachName("")
+    setImagePreview(null)
+    if (fileInputRef.current) fileInputRef.current.value = ""
+    setSavingAttach(false)
   }
 
   async function handleAddComment() {
@@ -94,25 +134,6 @@ export function PostDetailModal({ post, onClose, onPostUpdated }: PostDetailModa
     setSendingComment(false)
   }
 
-  async function handleAddAttachment() {
-    if (!attachContent.trim()) return
-    setSavingAttach(true)
-    const newAttachment: PostAttachment = {
-      id: crypto.randomUUID(),
-      type: attachTab,
-      content: attachContent.trim(),
-      name: attachName.trim() || undefined,
-    }
-    const updatedAttachments = [...(currentPost.attachments ?? []), newAttachment]
-    await updatePost(currentPost.id, { attachments: updatedAttachments })
-    const updated = { ...currentPost, attachments: updatedAttachments }
-    setCurrentPost(updated)
-    onPostUpdated(updated)
-    setAttachContent("")
-    setAttachName("")
-    setSavingAttach(false)
-  }
-
   const netCfg = networkConfig[currentPost.network]
 
   return (
@@ -124,7 +145,7 @@ export function PostDetailModal({ post, onClose, onPostUpdated }: PostDetailModa
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
 
         {/* ── Header ── */}
-        <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-slate-100">
+        <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-slate-100 flex-shrink-0">
           <div className="space-y-1.5 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${netCfg.color}`}>
@@ -149,20 +170,21 @@ export function PostDetailModal({ post, onClose, onPostUpdated }: PostDetailModa
         {/* ── Scrollable body ── */}
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-6">
 
-          {/* Image */}
-          {currentPost.imageUrl ? (
+          {/* ── Hero image (imageUrl ou última imagem de anexo) ── */}
+          {heroImage ? (
             <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={currentPost.imageUrl}
-                alt={currentPost.title}
-                className="w-full object-contain max-h-72"
-              />
+              <img src={heroImage} alt={currentPost.title} className="w-full object-contain max-h-72" />
+              {!currentPost.imageUrl && lastImageAttachment && (
+                <p className="text-[11px] text-slate-400 text-center py-1.5 bg-slate-50 border-t border-slate-100">
+                  Última imagem enviada: <span className="font-medium">{lastImageAttachment.name ?? "sem título"}</span>
+                </p>
+              )}
             </div>
           ) : (
             <div className="flex items-center justify-center gap-2 py-8 rounded-xl border border-dashed border-slate-200 bg-slate-50">
               <ImageOff className="w-5 h-5 text-slate-300" />
-              <span className="text-sm text-slate-400">Nenhuma imagem anexada</span>
+              <span className="text-sm text-slate-400">Nenhuma imagem ainda</span>
             </div>
           )}
 
@@ -201,34 +223,55 @@ export function PostDetailModal({ post, onClose, onPostUpdated }: PostDetailModa
               <Paperclip className="w-3.5 h-3.5" /> Anexos
             </p>
 
-            {/* Existing attachments */}
+            {/* Existing attachments list */}
             {(currentPost.attachments ?? []).length > 0 ? (
               <div className="space-y-2 mb-4">
                 {(currentPost.attachments ?? []).map(att => (
-                  <div key={att.id} className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 border border-slate-200">
-                    {att.type === "link" ? (
-                      <Link2 className="w-4 h-4 text-violet-500 flex-shrink-0 mt-0.5" />
+                  <div key={att.id} className="rounded-lg border border-slate-200 overflow-hidden">
+                    {att.type === "image" ? (
+                      /* Image attachment — show as preview */
+                      <div>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={att.content}
+                          alt={att.name ?? "imagem"}
+                          className="w-full max-h-56 object-contain bg-slate-50"
+                        />
+                        {att.name && (
+                          <p className="text-xs text-slate-500 px-3 py-1.5 bg-white border-t border-slate-100 flex items-center gap-1.5">
+                            <ImagePlus className="w-3.5 h-3.5 text-violet-400 flex-shrink-0" />
+                            {att.name}
+                          </p>
+                        )}
+                      </div>
                     ) : (
-                      <FileText className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                      /* Note / Link attachment */
+                      <div className="flex items-start gap-3 p-3 bg-slate-50">
+                        {att.type === "link" ? (
+                          <Link2 className="w-4 h-4 text-violet-500 flex-shrink-0 mt-0.5" />
+                        ) : (
+                          <FileText className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          {att.name && (
+                            <p className="text-xs font-semibold text-slate-700 mb-0.5">{att.name}</p>
+                          )}
+                          {att.type === "link" ? (
+                            <a
+                              href={att.content}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-violet-600 hover:underline break-all flex items-center gap-1"
+                            >
+                              {att.content}
+                              <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                            </a>
+                          ) : (
+                            <p className="text-sm text-slate-600 whitespace-pre-wrap">{att.content}</p>
+                          )}
+                        </div>
+                      </div>
                     )}
-                    <div className="min-w-0 flex-1">
-                      {att.name && (
-                        <p className="text-xs font-semibold text-slate-700 mb-0.5">{att.name}</p>
-                      )}
-                      {att.type === "link" ? (
-                        <a
-                          href={att.content}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-violet-600 hover:underline break-all flex items-center gap-1"
-                        >
-                          {att.content}
-                          <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                        </a>
-                      ) : (
-                        <p className="text-sm text-slate-600 whitespace-pre-wrap">{att.content}</p>
-                      )}
-                    </div>
                   </div>
                 ))}
               </div>
@@ -236,40 +279,42 @@ export function PostDetailModal({ post, onClose, onPostUpdated }: PostDetailModa
               <p className="text-sm text-slate-400 mb-4">Nenhum anexo ainda.</p>
             )}
 
-            {/* Add attachment */}
+            {/* Add attachment form */}
             <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+              {/* Tabs */}
               <div className="flex border-b border-slate-200">
-                <button
-                  onClick={() => setAttachTab("note")}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold transition-colors ${
-                    attachTab === "note"
-                      ? "bg-white text-slate-800 border-b-2 border-violet-500"
-                      : "bg-slate-50 text-slate-500 hover:text-slate-700"
-                  }`}
-                >
-                  <FileText className="w-3.5 h-3.5" /> Observação
-                </button>
-                <button
-                  onClick={() => setAttachTab("link")}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold transition-colors ${
-                    attachTab === "link"
-                      ? "bg-white text-slate-800 border-b-2 border-violet-500"
-                      : "bg-slate-50 text-slate-500 hover:text-slate-700"
-                  }`}
-                >
-                  <Link2 className="w-3.5 h-3.5" /> Link
-                </button>
+                {(["note", "link", "image"] as AttachmentTab[]).map(tab => {
+                  const icons = { note: FileText, link: Link2, image: ImagePlus }
+                  const labels = { note: "Observação", link: "Link", image: "Imagem" }
+                  const Icon = icons[tab]
+                  return (
+                    <button
+                      key={tab}
+                      onClick={() => setAttachTab(tab)}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold transition-colors ${
+                        attachTab === tab
+                          ? "bg-white text-slate-800 border-b-2 border-violet-500"
+                          : "bg-slate-50 text-slate-500 hover:text-slate-700"
+                      }`}
+                    >
+                      <Icon className="w-3.5 h-3.5" /> {labels[tab]}
+                    </button>
+                  )
+                })}
               </div>
 
               <div className="p-3 space-y-2">
-                <input
-                  type="text"
-                  value={attachName}
-                  onChange={e => setAttachName(e.target.value)}
-                  placeholder="Nome / título (opcional)"
-                  className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400 transition"
-                />
-                {attachTab === "note" ? (
+                {attachTab !== "image" && (
+                  <input
+                    type="text"
+                    value={attachName}
+                    onChange={e => setAttachName(e.target.value)}
+                    placeholder="Nome / título (opcional)"
+                    className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400 transition"
+                  />
+                )}
+
+                {attachTab === "note" && (
                   <textarea
                     value={attachContent}
                     onChange={e => setAttachContent(e.target.value)}
@@ -277,7 +322,9 @@ export function PostDetailModal({ post, onClose, onPostUpdated }: PostDetailModa
                     rows={3}
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400 transition resize-none"
                   />
-                ) : (
+                )}
+
+                {attachTab === "link" && (
                   <input
                     type="url"
                     value={attachContent}
@@ -286,9 +333,54 @@ export function PostDetailModal({ post, onClose, onPostUpdated }: PostDetailModa
                     className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400 transition"
                   />
                 )}
+
+                {attachTab === "image" && (
+                  <div className="space-y-2">
+                    {/* Upload area */}
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className={`relative flex flex-col items-center justify-center gap-2 py-6 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${
+                        imagePreview
+                          ? "border-violet-300 bg-violet-50"
+                          : "border-slate-200 bg-slate-50 hover:border-violet-300 hover:bg-violet-50/50"
+                      }`}
+                    >
+                      {imagePreview ? (
+                        <>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={imagePreview} alt="preview" className="max-h-40 max-w-full rounded object-contain" />
+                          <p className="text-xs text-violet-500 font-medium">Clique para trocar</p>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-6 h-6 text-slate-300" />
+                          <p className="text-sm text-slate-500 font-medium">Clique para selecionar imagem</p>
+                          <p className="text-xs text-slate-400">JPG, PNG, WEBP — máx. 5 MB</p>
+                        </>
+                      )}
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                    {imagePreview && (
+                      <input
+                        type="text"
+                        value={attachName}
+                        onChange={e => setAttachName(e.target.value)}
+                        placeholder="Nome do arquivo (opcional)"
+                        className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400 transition"
+                      />
+                    )}
+                  </div>
+                )}
+
                 <button
                   onClick={handleAddAttachment}
-                  disabled={savingAttach || !attachContent.trim()}
+                  disabled={savingAttach || !attachContent}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold text-white transition-opacity disabled:opacity-50"
                   style={{ background: "linear-gradient(135deg, oklch(0.65 0.22 283), oklch(0.55 0.25 300))" }}
                 >
@@ -305,7 +397,6 @@ export function PostDetailModal({ post, onClose, onPostUpdated }: PostDetailModa
               <MessageSquare className="w-3.5 h-3.5" /> Comentários
             </p>
 
-            {/* Existing comments */}
             {currentPost.comments.length > 0 ? (
               <div className="space-y-3 mb-4">
                 {currentPost.comments.map(comment => (
@@ -331,7 +422,6 @@ export function PostDetailModal({ post, onClose, onPostUpdated }: PostDetailModa
               <p className="text-sm text-slate-400 mb-4">Nenhum comentário ainda. Seja o primeiro!</p>
             )}
 
-            {/* Add comment */}
             <div className="flex gap-2">
               <textarea
                 value={commentText}
@@ -342,7 +432,7 @@ export function PostDetailModal({ post, onClose, onPostUpdated }: PostDetailModa
                     handleAddComment()
                   }
                 }}
-                placeholder="Adicione um comentário ou observação... (Enter para enviar)"
+                placeholder="Adicione um comentário... (Enter para enviar)"
                 rows={2}
                 className="flex-1 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400 transition resize-none"
               />

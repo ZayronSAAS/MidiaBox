@@ -96,25 +96,30 @@ export default function DesignerClientPage() {
                 onClick={() => setSelectedPost(post)}
                 className="bg-white rounded-xl border border-slate-200 text-left hover:border-violet-300 hover:shadow-md transition-all cursor-pointer group overflow-hidden flex flex-col"
               >
-                {/* Image preview */}
-                {post.imageUrl ? (
-                  <div className="w-full h-40 bg-slate-100 overflow-hidden flex-shrink-0">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={post.imageUrl}
-                      alt={post.title}
-                      loading="lazy"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                  </div>
-                ) : (
-                  <div className="w-full h-28 bg-slate-50 border-b border-slate-100 flex items-center justify-center flex-shrink-0">
-                    <div className="flex flex-col items-center gap-1 text-slate-300">
-                      <ImageOff className="w-6 h-6" />
-                      <span className="text-[10px]">Sem imagem</span>
+                {/* Image preview — imageUrl OU última imagem de anexo */}
+                {(() => {
+                  const thumb = post.imageUrl
+                    ?? [...(post.attachments ?? [])].reverse().find(a => a.type === "image")?.content
+                    ?? null
+                  return thumb ? (
+                    <div className="w-full h-40 bg-slate-100 overflow-hidden flex-shrink-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={thumb}
+                        alt={post.title}
+                        loading="lazy"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <div className="w-full h-28 bg-slate-50 border-b border-slate-100 flex items-center justify-center flex-shrink-0">
+                      <div className="flex flex-col items-center gap-1 text-slate-300">
+                        <ImageOff className="w-6 h-6" />
+                        <span className="text-[10px]">Sem imagem</span>
+                      </div>
+                    </div>
+                  )
+                })()}
 
                 {/* Card body */}
                 <div className="p-4 space-y-2.5 flex-1 flex flex-col">
