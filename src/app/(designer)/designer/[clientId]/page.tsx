@@ -40,8 +40,14 @@ export default function DesignerClientPage() {
   }, [clientId])
 
   const handlePostUpdated = useCallback((updated: Post) => {
-    setPosts(prev => prev.map(p => p.id === updated.id ? updated : p))
-    setSelectedPost(updated)
+    if (updated.status !== "ideia") {
+      // Post saiu de "ideia" (ex: enviado para aprovação) — remove da lista
+      setPosts(prev => prev.filter(p => p.id !== updated.id))
+      setSelectedPost(null)
+    } else {
+      setPosts(prev => prev.map(p => p.id === updated.id ? updated : p))
+      setSelectedPost(updated)
+    }
   }, [])
 
   const isLoading = clientsLoading || loading

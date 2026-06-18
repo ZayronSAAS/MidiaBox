@@ -135,6 +135,7 @@ export function PostDetailModal({ post, onClose, onPostUpdated }: PostDetailModa
     await updatePost(currentPost.id, {
       designerDone: true,
       designerDoneAt: doneAt,
+      status: "aprovacao",
       comments: updatedComments,
     })
 
@@ -142,11 +143,14 @@ export function PostDetailModal({ post, onClose, onPostUpdated }: PostDetailModa
       ...currentPost,
       designerDone: true,
       designerDoneAt: doneAt,
+      status: "aprovacao" as const,
       comments: updatedComments,
     }
     setCurrentPost(updated)
     onPostUpdated(updated)
     setMarkingDone(false)
+    // Fecha o modal após 1.5s para o designer ver o feedback
+    setTimeout(() => onClose(), 1500)
   }
 
   async function handleAddComment() {
