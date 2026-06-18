@@ -9,7 +9,7 @@ import { ClientAvatar } from "@/components/gestor/client-avatar"
 import { PostDetailModal } from "@/components/designer/post-detail-modal"
 import { networkConfig } from "@/lib/utils"
 import type { Post } from "@/types"
-import { ArrowLeft, Loader2, Lightbulb, MessageSquare, Paperclip } from "lucide-react"
+import { ArrowLeft, Loader2, Lightbulb, MessageSquare, Paperclip, ImageOff } from "lucide-react"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 
@@ -23,8 +23,8 @@ const formatLabels: Record<string, string> = {
 export default function DesignerClientPage() {
   const { clientId } = useParams<{ clientId: string }>()
   const { clients, loading: clientsLoading } = useClients()
-  const [posts, setPosts]         = useState<Post[]>([])
-  const [loading, setLoading]     = useState(true)
+  const [posts, setPosts]               = useState<Post[]>([])
+  const [loading, setLoading]           = useState(true)
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
 
   const client = clients.find(c => c.id === clientId)
@@ -32,8 +32,9 @@ export default function DesignerClientPage() {
   useEffect(() => {
     if (!clientId) return
     setLoading(true)
-    getPostsByClient(clientId).then(all => {
-      setPosts(all.filter(p => p.status === "ideia"))
+    // Filtra diretamente no banco — muito mais rápido
+    getPostsByClient(clientId, "ideia").then(data => {
+      setPosts(data)
       setLoading(false)
     })
   }, [clientId])
@@ -93,63 +94,78 @@ export default function DesignerClientPage() {
               <button
                 key={post.id}
                 onClick={() => setSelectedPost(post)}
-                className="bg-white rounded-xl border border-slate-200 p-5 space-y-3 text-left hover:border-violet-300 hover:shadow-md transition-all cursor-pointer group"
+                className="bg-white rounded-xl border border-slate-200 text-left hover:border-violet-300 hover:shadow-md transition-all cursor-pointer group overflow-hidden flex flex-col"
               >
-                {/* Badges */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${networkConfig[post.network].color}`}>
-                    {networkConfig[post.network].label}
-                  </span>
-                  {post.format && (
-                    <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-slate-100 text-slate-600">
-                      {formatLabels[post.format] ?? post.format}
-                    </span>
-                  )}
-                </div>
-
-                {/* Thumbnail */}
-                {post.imageUrl && (
-                  <div className="rounded-lg overflow-hidden border border-slate-100 bg-slate-50 h-28">
+                {/* Image preview */}
+                {post.imageUrl ? (
+                  <div className="w-full h-40 bg-slate-100 overflow-hidden flex-shrink-0">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={post.imageUrl} alt={post.title} className="w-full h-full object-cover" />
+                    <img
+                      src={post.imageUrl}
+                      alt={post.title}
+                      loading="lazy"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-full h-28 bg-slate-50 border-b border-slate-100 flex items-center justify-center flex-shrink-0">
+                    <div className="flex flex-col items-center gap-1 text-slate-300">
+                      <ImageOff className="w-6 h-6" />
+                      <span className="text-[10px]">Sem imagem</span>
+                    </div>
                   </div>
                 )}
 
-                {/* Title */}
-                <p className="font-semibold text-slate-900 text-sm leading-snug group-hover:text-violet-700 transition-colors">
-                  {post.title}
-                </p>
+                {/* Card body */}
+                <div className="p-4 space-y-2.5 flex-1 flex flex-col">
+                  {/* Badges */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${networkConfig[post.network].color}`}>
+                      {networkConfig[post.network].label}
+                    </span>
+                    {post.format && (
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-slate-100 text-slate-600">
+                        {formatLabels[post.format] ?? post.format}
+                      </span>
+                    )}
+                  </div>
 
-                {/* Caption */}
-                {post.caption && (
-                  <p className="text-sm text-slate-600 line-clamp-2 leading-relaxed">{post.caption}</p>
-                )}
-
-                {/* Meta row */}
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                  <p className="text-xs text-slate-400">
-                    {format(new Date(post.scheduledAt), "dd/MM/yyyy", { locale: ptBR })}
+                  {/* Title */}
+                  <p className="font-semibold text-slate-900 text-sm leading-snug group-hover:text-violet-700 transition-colors flex-1">
+                    {post.title}
                   </p>
-                  <div className="flex items-center gap-3 text-slate-400">
-                    {post.comments.length > 0 && (
-                      <span className="flex items-center gap-1 text-xs">
-                        <MessageSquare className="w-3.5 h-3.5" />
-                        {post.comments.length}
-                      </span>
-                    )}
-                    {(post.attachments ?? []).length > 0 && (
-                      <span className="flex items-center gap-1 text-xs">
-                        <Paperclip className="w-3.5 h-3.5" />
-                        {(post.attachments ?? []).length}
-                      </span>
-                    )}
-                  </div>
-                </div>
 
-                {/* Click hint */}
-                <p className="text-[11px] text-violet-400 font-medium opacity-0 group-hover:opacity-100 transition-opacity -mt-1">
-                  Clique para ver detalhes →
-                </p>
+                  {/* Caption snippet */}
+                  {post.caption && (
+                    <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">{post.caption}</p>
+                  )}
+
+                  {/* Meta row */}
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100 mt-auto">
+                    <p className="text-xs text-slate-400">
+                      {format(new Date(post.scheduledAt), "dd/MM/yyyy", { locale: ptBR })}
+                    </p>
+                    <div className="flex items-center gap-3 text-slate-400">
+                      {post.comments.length > 0 && (
+                        <span className="flex items-center gap-1 text-xs">
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          {post.comments.length}
+                        </span>
+                      )}
+                      {(post.attachments ?? []).length > 0 && (
+                        <span className="flex items-center gap-1 text-xs">
+                          <Paperclip className="w-3.5 h-3.5" />
+                          {(post.attachments ?? []).length}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Click hint */}
+                  <p className="text-[11px] text-violet-400 font-medium opacity-0 group-hover:opacity-100 transition-opacity -mt-1">
+                    Clique para ver detalhes →
+                  </p>
+                </div>
               </button>
             ))}
           </div>

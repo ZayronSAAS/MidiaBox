@@ -21,13 +21,22 @@ function mapPost(row: Record<string, unknown>): Post {
   }
 }
 
-export async function getPostsByClient(clientId: string): Promise<Post[]> {
+export async function getPostsByClient(
+  clientId: string,
+  status?: string
+): Promise<Post[]> {
   const supabase = createClient()
-  const { data, error } = await supabase
+  let query = supabase
     .from("posts")
-    .select("*")
+    .select(
+      "id, client_id, title, caption, network, status, scheduled_at, published_at, image_url, hashtags, comments, attachments, format, created_at, updated_at"
+    )
     .eq("client_id", clientId)
     .order("created_at", { ascending: true })
+
+  if (status) query = query.eq("status", status)
+
+  const { data, error } = await query
   if (error || !data) return []
   return data.map(mapPost)
 }
