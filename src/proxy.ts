@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -32,12 +32,10 @@ export async function middleware(request: NextRequest) {
   // Rotas públicas — qualquer um pode acessar
   const publicRoutes = ['/login', '/cadastro']
   if (publicRoutes.some(r => pathname.startsWith(r))) {
-    // Se já autenticado, redireciona para a área correta
     if (user) {
       if (role === 'gestor') {
         return NextResponse.redirect(new URL('/dashboard', request.url))
       }
-      // cliente ou sem role → acompanhamento (que trata o caso sem client_id)
       return NextResponse.redirect(new URL('/acompanhamento', request.url))
     }
     return supabaseResponse
@@ -49,14 +47,13 @@ export async function middleware(request: NextRequest) {
   }
 
   // Rotas exclusivas do gestor
-  if (pathname.startsWith('/dashboard') || pathname.startsWith('/clientes')) {
+  if (pathname.startsWith('/dashboard') || pathname.startsWith('/clientes') || pathname.startsWith('/calendario')) {
     if (role !== 'gestor') {
-      // cliente ou sem role → acompanhamento
       return NextResponse.redirect(new URL('/acompanhamento', request.url))
     }
   }
 
-  // Rotas do cliente — só gestor é bloqueado (sem role pode acessar e vê tela de pendente)
+  // Rotas do cliente — gestor é redirecionado
   if (pathname.startsWith('/acompanhamento')) {
     if (role === 'gestor') {
       return NextResponse.redirect(new URL('/dashboard', request.url))
