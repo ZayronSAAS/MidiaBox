@@ -29,35 +29,56 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const role = user?.user_metadata?.role as string | undefined
 
-  // Rotas públicas — qualquer um pode acessar
+  // ── Rotas públicas ────────────────────────────────────────────────────────
   const publicRoutes = ['/login', '/cadastro']
   if (publicRoutes.some(r => pathname.startsWith(r))) {
     if (user) {
-      if (role === 'gestor') {
-        return NextResponse.redirect(new URL('/dashboard', request.url))
-      }
+      if (role === 'gestor')    return NextResponse.redirect(new URL('/dashboard',      request.url))
+      if (role === 'designer')  return NextResponse.redirect(new URL('/designer',       request.url))
+      if (role === 'aprovador') return NextResponse.redirect(new URL('/aprovador',      request.url))
       return NextResponse.redirect(new URL('/acompanhamento', request.url))
     }
     return supabaseResponse
   }
 
-  // Usuário não autenticado em rota protegida → login
+  // ── Usuário não autenticado → login ───────────────────────────────────────
   if (!user) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Rotas exclusivas do gestor
-  if (pathname.startsWith('/dashboard') || pathname.startsWith('/clientes') || pathname.startsWith('/calendario')) {
+  // ── Rotas exclusivas do gestor ────────────────────────────────────────────
+  const gestorRoutes = ['/dashboard', '/clientes', '/calendario', '/equipe']
+  if (gestorRoutes.some(r => pathname.startsWith(r))) {
     if (role !== 'gestor') {
+      if (role === 'designer')  return NextResponse.redirect(new URL('/designer',  request.url))
+      if (role === 'aprovador') return NextResponse.redirect(new URL('/aprovador', request.url))
       return NextResponse.redirect(new URL('/acompanhamento', request.url))
     }
   }
 
-  // Rotas do cliente — gestor é redirecionado
-  if (pathname.startsWith('/acompanhamento')) {
-    if (role === 'gestor') {
-      return NextResponse.redirect(new URL('/dashboard', request.url))
+  // ── Rotas exclusivas do designer ──────────────────────────────────────────
+  if (pathname.startsWith('/designer')) {
+    if (role !== 'designer') {
+      if (role === 'gestor')    return NextResponse.redirect(new URL('/dashboard',  request.url))
+      if (role === 'aprovador') return NextResponse.redirect(new URL('/aprovador',  request.url))
+      return NextResponse.redirect(new URL('/acompanhamento', request.url))
     }
+  }
+
+  // ── Rotas exclusivas do aprovador ─────────────────────────────────────────
+  if (pathname.startsWith('/aprovador')) {
+    if (role !== 'aprovador') {
+      if (role === 'gestor')   return NextResponse.redirect(new URL('/dashboard', request.url))
+      if (role === 'designer') return NextResponse.redirect(new URL('/designer',  request.url))
+      return NextResponse.redirect(new URL('/acompanhamento', request.url))
+    }
+  }
+
+  // ── Rotas do cliente — outros papéis são redirecionados ───────────────────
+  if (pathname.startsWith('/acompanhamento')) {
+    if (role === 'gestor')    return NextResponse.redirect(new URL('/dashboard', request.url))
+    if (role === 'designer')  return NextResponse.redirect(new URL('/designer',  request.url))
+    if (role === 'aprovador') return NextResponse.redirect(new URL('/aprovador', request.url))
   }
 
   return supabaseResponse

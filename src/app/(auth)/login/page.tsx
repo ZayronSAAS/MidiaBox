@@ -34,7 +34,10 @@ export default function LoginPage() {
     }
 
     const role = data.user.user_metadata?.role
-    router.push(role === "gestor" ? "/dashboard" : "/acompanhamento")
+    if (role === "gestor")    router.push("/dashboard")
+    else if (role === "designer")  router.push("/designer")
+    else if (role === "aprovador") router.push("/aprovador")
+    else                           router.push("/acompanhamento")
     router.refresh()
   }
 
