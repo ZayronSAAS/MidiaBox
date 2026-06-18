@@ -30,7 +30,7 @@ export async function proxy(request: NextRequest) {
   const role = user?.user_metadata?.role as string | undefined
 
   // ── Rotas públicas ────────────────────────────────────────────────────────
-  const publicRoutes = ['/login', '/cadastro']
+  const publicRoutes = ['/login', '/cadastro', '/recuperar-senha', '/redefinir-senha']
   if (publicRoutes.some(r => pathname.startsWith(r))) {
     if (user) {
       if (role === 'gestor')    return NextResponse.redirect(new URL('/dashboard',      request.url))

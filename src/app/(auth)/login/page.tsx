@@ -111,12 +111,17 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="text-center text-xs text-zinc-600 mt-5">
-          Não tem conta?{" "}
-          <Link href="/cadastro" className="text-violet-400 hover:text-violet-300 transition-colors">
-            Cadastre-se
+        <div className="flex flex-col items-center gap-2 mt-5">
+          <Link href="/recuperar-senha" className="text-xs text-zinc-500 hover:text-violet-400 transition-colors">
+            Esqueceu sua senha?
           </Link>
-        </p>
+          <p className="text-xs text-zinc-600">
+            Não tem conta?{" "}
+            <Link href="/cadastro" className="text-violet-400 hover:text-violet-300 transition-colors">
+              Cadastre-se
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   )
