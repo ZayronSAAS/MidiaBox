@@ -9,6 +9,7 @@ import {
   X, Link2, FileText, Send, Loader2, ImageOff,
   Calendar, Hash, MessageSquare, Paperclip,
   ExternalLink, PlusCircle, ImagePlus, Upload,
+  CheckCircle2, CircleCheck,
 } from "lucide-react"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -34,6 +35,7 @@ export function PostDetailModal({ post, onClose, onPostUpdated }: PostDetailModa
 
   const [commentText, setCommentText]       = useState("")
   const [sendingComment, setSendingComment] = useState(false)
+  const [markingDone, setMarkingDone]       = useState(false)
 
   const [attachTab, setAttachTab]           = useState<AttachmentTab>("note")
   const [attachContent, setAttachContent]   = useState("")
@@ -110,6 +112,41 @@ export function PostDetailModal({ post, onClose, onPostUpdated }: PostDetailModa
     setImagePreview(null)
     if (fileInputRef.current) fileInputRef.current.value = ""
     setSavingAttach(false)
+  }
+
+  async function handleMarkDone() {
+    if (currentPost.designerDone) return
+    setMarkingDone(true)
+    const user = await getCurrentUser()
+    const doneAt = new Date().toISOString()
+
+    // Adiciona comentário de sistema
+    const systemComment: PostComment = {
+      id: crypto.randomUUID(),
+      postId: currentPost.id,
+      authorId: user?.id ?? "unknown",
+      authorName: user?.user_metadata?.name ?? "Designer",
+      authorRole: "designer",
+      content: "✅ Trabalho concluído pelo designer.",
+      createdAt: doneAt,
+    }
+    const updatedComments = [...currentPost.comments, systemComment]
+
+    await updatePost(currentPost.id, {
+      designerDone: true,
+      designerDoneAt: doneAt,
+      comments: updatedComments,
+    })
+
+    const updated = {
+      ...currentPost,
+      designerDone: true,
+      designerDoneAt: doneAt,
+      comments: updatedComments,
+    }
+    setCurrentPost(updated)
+    onPostUpdated(updated)
+    setMarkingDone(false)
   }
 
   async function handleAddComment() {
@@ -446,6 +483,45 @@ export function PostDetailModal({ post, onClose, onPostUpdated }: PostDetailModa
               </button>
             </div>
           </div>
+          {/* ── Marcar como concluído ── */}
+          <div className={`rounded-xl border-2 p-4 transition-colors ${
+            currentPost.designerDone
+              ? "border-emerald-200 bg-emerald-50"
+              : "border-dashed border-slate-200 bg-slate-50"
+          }`}>
+            {currentPost.designerDone ? (
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="w-6 h-6 text-emerald-500 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-emerald-700">Trabalho concluído!</p>
+                  <p className="text-xs text-emerald-600 mt-0.5">
+                    Notificação enviada ao admin em{" "}
+                    {format(new Date(currentPost.designerDoneAt!), "dd/MM 'às' HH:mm", { locale: ptBR })}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-slate-700">Finalizou o trabalho?</p>
+                  <p className="text-xs text-slate-500 mt-0.5">O admin será notificado para revisar.</p>
+                </div>
+                <button
+                  onClick={handleMarkDone}
+                  disabled={markingDone}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white flex-shrink-0 transition-opacity disabled:opacity-60"
+                  style={{ background: "linear-gradient(135deg, #10b981, #059669)" }}
+                >
+                  {markingDone
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : <CircleCheck className="w-4 h-4" />
+                  }
+                  {markingDone ? "Salvando..." : "Marcar como concluído"}
+                </button>
+              </div>
+            )}
+          </div>
+
         </div>
       </div>
     </div>

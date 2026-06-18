@@ -69,6 +69,8 @@ export interface Post {
   hashtags: string[]
   comments: PostComment[]
   attachments?: PostAttachment[]
+  designerDone?: boolean
+  designerDoneAt?: string
   createdAt: string
   updatedAt: string
 }

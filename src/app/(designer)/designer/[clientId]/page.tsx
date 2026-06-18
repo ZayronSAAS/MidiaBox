@@ -9,7 +9,7 @@ import { ClientAvatar } from "@/components/gestor/client-avatar"
 import { PostDetailModal } from "@/components/designer/post-detail-modal"
 import { networkConfig } from "@/lib/utils"
 import type { Post } from "@/types"
-import { ArrowLeft, Loader2, Lightbulb, MessageSquare, Paperclip, ImageOff } from "lucide-react"
+import { ArrowLeft, Loader2, Lightbulb, MessageSquare, Paperclip, ImageOff, CheckCircle2 } from "lucide-react"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 
@@ -94,7 +94,7 @@ export default function DesignerClientPage() {
               <button
                 key={post.id}
                 onClick={() => setSelectedPost(post)}
-                className="bg-white rounded-xl border border-slate-200 text-left hover:border-violet-300 hover:shadow-md transition-all cursor-pointer group overflow-hidden flex flex-col"
+                className="relative bg-white rounded-xl border border-slate-200 text-left hover:border-violet-300 hover:shadow-md transition-all cursor-pointer group overflow-hidden flex flex-col"
               >
                 {/* Image preview — imageUrl OU última imagem de anexo */}
                 {(() => {
@@ -123,6 +123,14 @@ export default function DesignerClientPage() {
 
                 {/* Card body */}
                 <div className="p-4 space-y-2.5 flex-1 flex flex-col">
+                  {/* Done badge */}
+                  {post.designerDone && (
+                    <div className="absolute top-3 right-3 flex items-center gap-1 bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                      <CheckCircle2 className="w-3 h-3" />
+                      Concluído
+                    </div>
+                  )}
+
                   {/* Badges */}
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${networkConfig[post.network].color}`}>

@@ -16,6 +16,8 @@ function mapPost(row: Record<string, unknown>): Post {
     comments: (row.comments as Post["comments"]) ?? [],
     attachments: (row.attachments as Post["attachments"]) ?? [],
     format: (row.format as Post["format"]) ?? "foto",
+    designerDone: (row.designer_done as boolean) ?? false,
+    designerDoneAt: (row.designer_done_at as string) ?? undefined,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   }
@@ -29,7 +31,7 @@ export async function getPostsByClient(
   let query = supabase
     .from("posts")
     .select(
-      "id, client_id, title, caption, network, status, scheduled_at, published_at, image_url, hashtags, comments, attachments, format, created_at, updated_at"
+      "id, client_id, title, caption, network, status, scheduled_at, published_at, image_url, hashtags, comments, attachments, format, designer_done, designer_done_at, created_at, updated_at"
     )
     .eq("client_id", clientId)
     .order("created_at", { ascending: true })
@@ -94,6 +96,8 @@ export async function updatePost(id: string, updates: Partial<Post>): Promise<vo
   if (updates.comments !== undefined) update.comments = updates.comments
   if (updates.attachments !== undefined) update.attachments = updates.attachments
   if (updates.format !== undefined) update.format = updates.format
+  if (updates.designerDone !== undefined) update.designer_done = updates.designerDone
+  if (updates.designerDoneAt !== undefined) update.designer_done_at = updates.designerDoneAt
   await supabase.from("posts").update(update).eq("id", id)
 }
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { LayoutDashboard, Users, LogOut, Menu, X, CalendarDays, Users2 } from "lucide-react"
@@ -14,9 +14,23 @@ const navItems = [
   { href: "/equipe",     label: "Equipe",     icon: Users2 },
 ]
 
+function useDesignerDoneCount() {
+  const [count, setCount] = useState(0)
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from("posts")
+      .select("id", { count: "exact", head: true })
+      .eq("designer_done", true)
+      .then(({ count: c }) => setCount(c ?? 0))
+  }, [])
+  return count
+}
+
 function NavLinks({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname()
   const router = useRouter()
+  const designerDoneCount = useDesignerDoneCount()
 
   async function handleLogout() {
     const supabase = createClient()
@@ -59,6 +73,11 @@ function NavLinks({ onClose }: { onClose?: () => void }) {
             >
               <Icon className="w-4 h-4 flex-shrink-0" />
               {label}
+              {href === "/dashboard" && designerDoneCount > 0 && (
+                <span className="ml-auto flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold text-white bg-emerald-500">
+                  {designerDoneCount}
+                </span>
+              )}
             </Link>
           )
         })}

@@ -13,6 +13,7 @@ import { AlertsPanel } from "@/components/gestor/dashboard/alerts-panel"
 import { FormatDonut } from "@/components/gestor/dashboard/format-donut"
 import { TasksWidget } from "@/components/gestor/dashboard/tasks-widget"
 import { UpcomingPosts } from "@/components/gestor/dashboard/upcoming-posts"
+import { DesignerNotifications } from "@/components/gestor/dashboard/designer-notifications"
 import { ClientAvatar } from "@/components/gestor/client-avatar"
 import { Button } from "@/components/ui/button"
 import { statusConfig } from "@/lib/utils"
@@ -107,6 +108,12 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
+          {/* 0 ── Notificações do designer */}
+          <DesignerNotifications
+            posts={posts}
+            clientNames={Object.fromEntries(clients.map(c => [c.id, c.name]))}
+          />
+
           {/* 1 ── KPIs */}
           <KpiCards
             clients={clients}
