@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import type { Post } from "@/types"
 import { CheckCircle2, ArrowRight, BellRing } from "lucide-react"
@@ -7,17 +8,46 @@ import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { networkConfig } from "@/lib/utils"
 
+const STORAGE_KEY = "mbox_seen_designer_notifications"
+
+function getSeenIds(): string[] {
+  if (typeof window === "undefined") return []
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]")
+  } catch {
+    return []
+  }
+}
+
+function markAsSeen(id: string) {
+  const seen = getSeenIds()
+  if (!seen.includes(id)) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([...seen, id]))
+  }
+}
+
 interface DesignerNotificationsProps {
   posts: Post[]
   clientNames: Record<string, string>
 }
 
 export function DesignerNotifications({ posts, clientNames }: DesignerNotificationsProps) {
+  const [seenIds, setSeenIds] = useState<string[]>([])
+
+  useEffect(() => {
+    setSeenIds(getSeenIds())
+  }, [])
+
   const donePosts = posts
-    .filter(p => p.designerDone)
+    .filter(p => p.designerDone && !seenIds.includes(p.id))
     .sort((a, b) => new Date(b.designerDoneAt!).getTime() - new Date(a.designerDoneAt!).getTime())
 
   if (donePosts.length === 0) return null
+
+  function handleSee(id: string) {
+    markAsSeen(id)
+    setSeenIds(prev => [...prev, id])
+  }
 
   return (
     <div className="bg-white rounded-2xl border border-emerald-200 shadow-sm overflow-hidden">
@@ -30,7 +60,7 @@ export function DesignerNotifications({ posts, clientNames }: DesignerNotificati
           <p className="text-sm font-semibold text-emerald-800">
             Designer concluiu {donePosts.length} trabalho{donePosts.length > 1 ? "s" : ""}
           </p>
-          <p className="text-xs text-emerald-600">Aguardando sua revisão</p>
+          <p className="text-xs text-emerald-600">Clique em "Ver" para revisar e dispensar a notificação</p>
         </div>
       </div>
 
@@ -60,6 +90,7 @@ export function DesignerNotifications({ posts, clientNames }: DesignerNotificati
               </div>
               <Link
                 href={`/clientes/${post.clientId}`}
+                onClick={() => handleSee(post.id)}
                 className="flex items-center gap-1 text-xs text-violet-600 hover:text-violet-800 font-medium flex-shrink-0 transition-colors"
               >
                 Ver <ArrowRight className="w-3.5 h-3.5" />

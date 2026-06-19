@@ -47,8 +47,19 @@ export function Kanban({ posts, onStatusChange, onPostUpdate, onPostDelete, auth
 
   function onDragEnd(result: DropResult) {
     if (!result.destination) return
-    const { draggableId, destination } = result
+    const { draggableId, source, destination } = result
     const newStatus = destination.droppableId as PostStatus
+    const prevStatus = source.droppableId as PostStatus
+
+    // Voltando de aprovação para ideias → reseta designer_done
+    if (prevStatus === "aprovacao" && newStatus === "ideia") {
+      const post = posts.find(p => p.id === draggableId)
+      if (post) {
+        onPostUpdate({ ...post, status: "ideia", designerDone: false, designerDoneAt: undefined })
+        return
+      }
+    }
+
     onStatusChange(draggableId, newStatus)
   }
 
@@ -58,7 +69,8 @@ export function Kanban({ posts, onStatusChange, onPostUpdate, onPostDelete, auth
   }
 
   function handleReject(post: Post) {
-    onStatusChange(post.id, "ideia")
+    // Volta para ideias e reseta o flag do designer
+    onPostUpdate({ ...post, status: "ideia", designerDone: false, designerDoneAt: undefined })
     setSelectedPost(null)
   }
 

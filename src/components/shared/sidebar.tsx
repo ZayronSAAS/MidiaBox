@@ -14,15 +14,23 @@ const navItems = [
   { href: "/equipe",     label: "Equipe",     icon: Users2 },
 ]
 
+const SEEN_KEY = "mbox_seen_designer_notifications"
+
 function useDesignerDoneCount() {
   const [count, setCount] = useState(0)
   useEffect(() => {
+    let seenIds: string[] = []
+    try { seenIds = JSON.parse(localStorage.getItem(SEEN_KEY) ?? "[]") } catch { /* empty */ }
+
     const supabase = createClient()
     supabase
       .from("posts")
-      .select("id", { count: "exact", head: true })
+      .select("id")
       .eq("designer_done", true)
-      .then(({ count: c }) => setCount(c ?? 0))
+      .then(({ data }) => {
+        const unseen = (data ?? []).filter(r => !seenIds.includes(r.id as string))
+        setCount(unseen.length)
+      })
   }, [])
   return count
 }
