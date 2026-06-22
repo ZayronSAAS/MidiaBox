@@ -43,11 +43,15 @@ export async function getPostsByClient(
   return data.map(mapPost)
 }
 
+// Busca posts SEM attachments nem comments completos (ambos podem ter base64 de imagens pesadas).
+// O dashboard só precisa de metadados — o kanban carrega tudo por cliente, sob demanda.
 export async function getAllPosts(): Promise<Post[]> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from("posts")
-    .select("*")
+    .select(
+      "id, client_id, title, caption, network, status, scheduled_at, published_at, image_url, hashtags, format, designer_done, designer_done_at, created_at, updated_at"
+    )
     .order("updated_at", { ascending: false })
   if (error || !data) return []
   return data.map(mapPost)
