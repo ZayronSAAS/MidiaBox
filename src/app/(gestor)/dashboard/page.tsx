@@ -3,65 +3,68 @@
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { useClients } from "@/lib/clients-context"
-import { getAllPosts } from "@/lib/posts-service"
+import { createClient } from "@/lib/supabase/client"
 import { getTasks } from "@/lib/tasks-service"
-import { getMetrics } from "@/lib/metrics-service"
-import { Post, Task, ClientMetric } from "@/types"
-import { KpiCards } from "@/components/gestor/dashboard/kpi-cards"
-import { ClientHealthCards } from "@/components/gestor/dashboard/client-health-cards"
-import { AlertsPanel } from "@/components/gestor/dashboard/alerts-panel"
-import { FormatDonut } from "@/components/gestor/dashboard/format-donut"
+import { Post, Task } from "@/types"
 import { TasksWidget } from "@/components/gestor/dashboard/tasks-widget"
 import { UpcomingPosts } from "@/components/gestor/dashboard/upcoming-posts"
 import { DesignerNotifications } from "@/components/gestor/dashboard/designer-notifications"
-import { ClientAvatar } from "@/components/gestor/client-avatar"
 import { Button } from "@/components/ui/button"
-import { statusConfig } from "@/lib/utils"
-import { Plus, Loader2, ArrowRight } from "lucide-react"
+import { statusConfig, networkConfig } from "@/lib/utils"
+import {
+  Plus, Loader2, ArrowRight, FileText,
+  Clock, CheckCircle2, Calendar, Users,
+} from "lucide-react"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 
-// ── Constants computed once at module load ────────────────────────────────────
-const _now         = new Date()
-const CURRENT_MONTH = _now.getMonth() + 1
-const CURRENT_YEAR  = _now.getFullYear()
-const PREV_MONTH    = CURRENT_MONTH === 1 ? 12 : CURRENT_MONTH - 1
-const PREV_YEAR     = CURRENT_MONTH === 1 ? CURRENT_YEAR - 1 : CURRENT_YEAR
-const TODAY_STR     = format(_now, "yyyy-MM-dd")
+const _now      = new Date()
+const TODAY_STR = format(_now, "yyyy-MM-dd")
 
-function lastNMonths(n: number): { month: number; year: number }[] {
-  const result: { month: number; year: number }[] = []
-  const d = new Date(_now)
-  for (let i = 0; i < n; i++) {
-    result.unshift({ month: d.getMonth() + 1, year: d.getFullYear() })
-    d.setMonth(d.getMonth() - 1)
-  }
-  return result
+// Busca apenas as colunas necessárias para o dashboard (sem attachments/comments/logo)
+async function getDashboardPosts(): Promise<Post[]> {
+  const supabase = createClient()
+  const { data } = await supabase
+    .from("posts")
+    .select(
+      "id, client_id, title, network, status, scheduled_at, format, designer_done, designer_done_at, updated_at, created_at, caption, hashtags, image_url"
+    )
+    .order("scheduled_at", { ascending: true })
+  return (data ?? []).map(r => ({
+    id: r.id as string,
+    clientId: r.client_id as string,
+    title: r.title as string,
+    caption: (r.caption as string) ?? "",
+    network: r.network as Post["network"],
+    status: r.status as Post["status"],
+    scheduledAt: r.scheduled_at as string,
+    imageUrl: (r.image_url as string) ?? undefined,
+    hashtags: (r.hashtags as string[]) ?? [],
+    comments: [],
+    attachments: [],
+    format: (r.format as Post["format"]) ?? "foto",
+    designerDone: (r.designer_done as boolean) ?? false,
+    designerDoneAt: (r.designer_done_at as string) ?? undefined,
+    createdAt: r.created_at as string,
+    updatedAt: r.updated_at as string,
+  }))
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const { clients, loading: clientsLoading } = useClients()
 
   const [posts,       setPosts]       = useState<Post[]>([])
   const [tasks,       setTasks]       = useState<Task[]>([])
-  const [metrics,     setMetrics]     = useState<ClientMetric[]>([])
   const [dataLoading, setDataLoading] = useState(true)
 
   const loadData = useCallback(async () => {
     setDataLoading(true)
-    const periods = lastNMonths(7)
-    const months  = [...new Set(periods.map(p => p.month))]
-    const years   = [...new Set(periods.map(p => p.year))]
-
-    const [postsData, tasksData, metricsData] = await Promise.all([
-      getAllPosts(),
+    const [postsData, tasksData] = await Promise.all([
+      getDashboardPosts(),
       getTasks(TODAY_STR),
-      getMetrics({ months, years }),
     ])
     setPosts(postsData)
     setTasks(tasksData)
-    setMetrics(metricsData)
     setDataLoading(false)
   }, [])
 
@@ -69,20 +72,21 @@ export default function DashboardPage() {
 
   const loading = clientsLoading || dataLoading
 
-  // ── Derived ───────────────────────────────────────────────────────────────
-  const currentMetrics = metrics.filter(
-    m => m.month === CURRENT_MONTH && m.year === CURRENT_YEAR
-  )
-  const prevMetrics = metrics.filter(
-    m => m.month === PREV_MONTH && m.year === PREV_YEAR
-  )
-  const recentPosts = [...posts]
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+  // Contadores rápidos
+  const counts = {
+    ideia:     posts.filter(p => p.status === "ideia").length,
+    aprovacao: posts.filter(p => p.status === "aprovacao").length,
+    agendado:  posts.filter(p => p.status === "agendado").length,
+    publicado: posts.filter(p => p.status === "publicado").length,
+  }
+
+  const upcomingPosts = posts
+    .filter(p => p.status === "agendado")
+    .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
     .slice(0, 5)
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6 pb-12">
+    <div className="p-4 sm:p-8 max-w-5xl mx-auto space-y-6 pb-12">
 
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
@@ -108,96 +112,91 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          {/* 0 ── Notificações do designer */}
+          {/* Notificações do designer — destaque principal */}
           <DesignerNotifications
             posts={posts}
             clientNames={Object.fromEntries(clients.map(c => [c.id, c.name]))}
           />
 
-          {/* 1 ── KPIs */}
-          <KpiCards
-            clients={clients}
-            posts={posts}
-            currentMonth={CURRENT_MONTH}
-            currentYear={CURRENT_YEAR}
-            currentMetrics={currentMetrics}
-            prevMetrics={prevMetrics}
-          />
+          {/* Contadores rápidos por status */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { key: "ideia",     label: "Ideias",       icon: FileText,     color: "text-slate-600",  bg: "bg-slate-50",   border: "border-slate-200" },
+              { key: "aprovacao", label: "Aprovação",    icon: Clock,        color: "text-orange-600", bg: "bg-orange-50",  border: "border-orange-200" },
+              { key: "agendado",  label: "Agendados",    icon: Calendar,     color: "text-blue-600",   bg: "bg-blue-50",    border: "border-blue-200" },
+              { key: "publicado", label: "Publicados",   icon: CheckCircle2, color: "text-green-600",  bg: "bg-green-50",   border: "border-green-200" },
+            ].map(({ key, label, icon: Icon, color, bg, border }) => (
+              <Link key={key} href="/clientes" className={`rounded-xl border ${border} ${bg} p-4 flex items-center gap-3 hover:shadow-sm transition-shadow`}>
+                <Icon className={`w-5 h-5 ${color} flex-shrink-0`} />
+                <div>
+                  <p className={`text-2xl font-bold ${color}`}>{counts[key as keyof typeof counts]}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{label}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
 
-          {/* 2 ── Desempenho por cliente */}
-          {clients.length > 0 && (
-            <ClientHealthCards
-              clients={clients}
-              posts={posts}
-              currentMonth={CURRENT_MONTH}
-              currentYear={CURRENT_YEAR}
-              metrics={metrics}
-            />
-          )}
+          {/* Clientes ativos */}
+          <div className="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-3">
+            <Users className="w-5 h-5 text-violet-500 flex-shrink-0" />
+            <div>
+              <p className="text-2xl font-bold text-violet-600">{clients.length}</p>
+              <p className="text-xs text-slate-500">Cliente{clients.length !== 1 ? "s" : ""} ativo{clients.length !== 1 ? "s" : ""}</p>
+            </div>
+          </div>
 
-          {/* 3 ── Alertas inteligentes */}
-          <AlertsPanel clients={clients} posts={posts} />
-
-          {/* 4 ── Linha inferior: donut · tarefas · próximas publicações */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <FormatDonut
-              posts={posts}
-              currentMonth={CURRENT_MONTH}
-              currentYear={CURRENT_YEAR}
-            />
+          {/* Linha: Tarefas + Próximas publicações */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <TasksWidget
               tasks={tasks}
               clients={clients}
               today={TODAY_STR}
               onTasksChange={setTasks}
             />
-            <UpcomingPosts posts={posts} clients={clients} />
-          </div>
 
-          {/* 5 ── Posts recentes (mantido) */}
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100">
-              <p className="text-sm font-semibold text-slate-900">Posts recentes</p>
-            </div>
-            {recentPosts.length === 0 ? (
-              <div className="px-6 py-12 text-center text-slate-400 text-sm">
-                Nenhum post cadastrado ainda.
+            {/* Próximas publicações agendadas */}
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-blue-500" />
+                <p className="text-sm font-semibold text-slate-900">Próximas publicações</p>
               </div>
-            ) : (
-              <div className="divide-y divide-slate-100">
-                {recentPosts.map(post => {
-                  const client = clients.find(c => c.id === post.clientId)
-                  return (
-                    <Link
-                      key={post.id}
-                      href={`/clientes/${post.clientId}`}
-                      className="px-6 py-3.5 flex items-center justify-between hover:bg-slate-50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        {client && (
-                          <ClientAvatar name={client.name} color={client.color} logo={client.logo} size="sm" />
-                        )}
-                        <div className="min-w-0">
+              {upcomingPosts.length === 0 ? (
+                <div className="px-4 py-8 text-center text-slate-400 text-xs">
+                  Nenhum post agendado.
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {upcomingPosts.map(post => {
+                    const client = clients.find(c => c.id === post.clientId)
+                    return (
+                      <Link
+                        key={post.id}
+                        href={`/clientes/${post.clientId}`}
+                        className="px-4 py-3 flex items-center justify-between gap-3 hover:bg-slate-50 transition-colors"
+                      >
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-slate-900 truncate">{post.title}</p>
-                          <p className="text-xs text-slate-500 mt-0.5">
-                            {clients.find(c => c.id === post.clientId)?.name ?? "—"}
-                          </p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${networkConfig[post.network].color}`}>
+                              {networkConfig[post.network].label}
+                            </span>
+                            <span className="text-xs text-slate-400">
+                              {client?.name ?? "—"}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-3 ml-4 flex-shrink-0">
-                        <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${statusConfig[post.status].color}`}>
-                          {statusConfig[post.status].label}
-                        </span>
-                        <span className="text-xs text-slate-400 tabular-nums hidden sm:block">
-                          {format(new Date(post.scheduledAt), "dd/MM")}
-                        </span>
-                        <ArrowRight className="w-3.5 h-3.5 text-slate-300" />
-                      </div>
-                    </Link>
-                  )
-                })}
-              </div>
-            )}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="text-xs text-slate-400 tabular-nums">
+                            {format(new Date(post.scheduledAt), "dd/MM")}
+                          </span>
+                          <ArrowRight className="w-3.5 h-3.5 text-slate-300" />
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </>
       )}

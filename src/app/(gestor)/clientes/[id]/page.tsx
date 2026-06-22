@@ -49,8 +49,16 @@ export default function ClientePage({ params }: PageProps) {
   const { id } = use(params)
   const router = useRouter()
 
-  const { clients, loading: clientsLoading, deleteClient: deleteClientCtx, updateClient: updateClientCtx } = useClients()
+  const { clients, loading: clientsLoading, deleteClient: deleteClientCtx, updateClient: updateClientCtx, fetchFullClient } = useClients()
   const client = clients.find((c) => c.id === id) ?? null
+
+  // Carrega logo e campos pesados só nesta página
+  useEffect(() => {
+    if (id && !clients.find(c => c.id === id)?.logo) {
+      fetchFullClient(id)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
 
   const [posts, setPosts] = useState<Post[]>([])
   const [postsLoading, setPostsLoading] = useState(true)

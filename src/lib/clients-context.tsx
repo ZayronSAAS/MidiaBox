@@ -11,6 +11,7 @@ interface ClientsContextType {
   updateClient: (id: string, data: Partial<Client>) => Promise<void>
   addClient: (data: Omit<Client, "id" | "createdAt">) => Promise<Client | null>
   reload: () => Promise<void>
+  fetchFullClient: (id: string) => Promise<Client | null>
 }
 
 const ClientsContext = createContext<ClientsContextType | null>(null)
@@ -48,9 +49,13 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
   async function fetchClients() {
     setLoading(true)
     const supabase = createClient()
+    // Exclui logo, briefing e campos de marca (base64 ou texto longo)
+    // Esses campos só são carregados na página de detalhe do cliente.
     const { data, error } = await supabase
       .from("clients")
-      .select("*")
+      .select(
+        "id, name, slug, niche, color, social_networks, posts_per_week, responsible_name, city_state, report_day, contract_value, whatsapp, email, approval_flow, created_at"
+      )
       .order("created_at", { ascending: true })
     if (!error && data) {
       setClients(data.map((r) => mapClient(r as Record<string, unknown>)))
@@ -125,9 +130,23 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
     return newClient
   }
 
+  async function fetchFullClient(id: string): Promise<Client | null> {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from("clients")
+      .select("*")
+      .eq("id", id)
+      .single()
+    if (error || !data) return null
+    const full = mapClient(data as Record<string, unknown>)
+    // Atualiza o cache do contexto com os dados completos
+    setClients(prev => prev.map(c => c.id === id ? { ...c, ...full } : c))
+    return full
+  }
+
   return (
     <ClientsContext.Provider
-      value={{ clients, loading, deleteClient, updateClient, addClient, reload: fetchClients }}
+      value={{ clients, loading, deleteClient, updateClient, addClient, reload: fetchClients, fetchFullClient }}
     >
       {children}
     </ClientsContext.Provider>
