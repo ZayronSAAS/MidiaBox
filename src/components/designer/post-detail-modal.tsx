@@ -9,7 +9,7 @@ import {
   X, Link2, FileText, Send, Loader2, ImageOff,
   Calendar, Hash, MessageSquare, Paperclip,
   ExternalLink, PlusCircle, ImagePlus, Upload,
-  CheckCircle2, CircleCheck,
+  CheckCircle2, CircleCheck, Download,
 } from "lucide-react"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -44,6 +44,13 @@ export function PostDetailModal({ post, onClose, onPostUpdated }: PostDetailModa
   const [savingAttach, setSavingAttach]     = useState(false)
 
   const [currentPost, setCurrentPost]       = useState<Post>(post)
+
+  function downloadAttachment(content: string, name?: string) {
+    const a = document.createElement("a")
+    a.href = content
+    a.download = name ?? "imagem.jpg"
+    a.click()
+  }
 
   // Última imagem enviada como anexo (admin ou designer)
   const lastImageAttachment = [...(currentPost.attachments ?? [])]
@@ -270,14 +277,22 @@ export function PostDetailModal({ post, onClose, onPostUpdated }: PostDetailModa
                 {(currentPost.attachments ?? []).map(att => (
                   <div key={att.id} className="rounded-lg border border-slate-200 overflow-hidden">
                     {att.type === "image" ? (
-                      /* Image attachment — show as preview */
-                      <div>
+                      /* Image attachment — show as preview with download button */
+                      <div className="relative">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={att.content}
                           alt={att.name ?? "imagem"}
                           className="w-full max-h-56 object-contain bg-slate-50"
                         />
+                        <button
+                          onClick={() => downloadAttachment(att.content, att.name)}
+                          className="absolute top-2 right-2 flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-black/50 text-white text-xs font-medium hover:bg-black/70 transition-colors"
+                          title="Baixar imagem"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          Baixar
+                        </button>
                         {att.name && (
                           <p className="text-xs text-slate-500 px-3 py-1.5 bg-white border-t border-slate-100 flex items-center gap-1.5">
                             <ImagePlus className="w-3.5 h-3.5 text-violet-400 flex-shrink-0" />

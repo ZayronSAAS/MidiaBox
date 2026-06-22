@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import {
   CheckCircle, XCircle, MessageCircle, Clock,
-  ImageIcon, Link2, FileText, X, Pencil,
+  ImageIcon, Link2, FileText, X, Pencil, Download,
 } from "lucide-react"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -143,6 +143,13 @@ export function Kanban({ posts, onStatusChange, onPostUpdate, onPostDelete, auth
     handleAddAttachment(post, { id: `a${Date.now()}`, type: "note", content: noteInput })
     setNoteInput("")
     setAttachmentType(null)
+  }
+
+  function downloadAttachment(content: string, name?: string) {
+    const a = document.createElement("a")
+    a.href = content
+    a.download = name ?? "imagem.jpg"
+    a.click()
   }
 
   function handleComment(post: Post) {
@@ -430,11 +437,21 @@ export function Kanban({ posts, onStatusChange, onPostUpdate, onPostDelete, auth
                         {att.type === "image" ? (
                           <div className="relative rounded-xl overflow-hidden border border-slate-200">
                             <img src={att.content} alt={att.name ?? "Imagem"} className="w-full max-h-52 object-cover" />
+                            {/* Remover */}
                             <button
                               onClick={() => handleRemoveAttachment(selectedPost, att.id)}
                               className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors"
                             >
                               <X className="w-3 h-3" />
+                            </button>
+                            {/* Baixar */}
+                            <button
+                              onClick={() => downloadAttachment(att.content, att.name)}
+                              className="absolute top-2 right-10 flex items-center gap-1 px-2 py-1 rounded-lg bg-black/50 text-white text-[11px] font-medium hover:bg-black/70 transition-colors"
+                              title="Baixar imagem"
+                            >
+                              <Download className="w-3 h-3" />
+                              Baixar
                             </button>
                             {att.name && (
                               <div className="absolute bottom-0 left-0 right-0 bg-black/40 px-3 py-1.5">

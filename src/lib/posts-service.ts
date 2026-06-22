@@ -101,7 +101,8 @@ export async function updatePost(id: string, updates: Partial<Post>): Promise<vo
   if (updates.attachments !== undefined) update.attachments = updates.attachments
   if (updates.format !== undefined) update.format = updates.format
   if (updates.designerDone !== undefined) update.designer_done = updates.designerDone
-  if (updates.designerDoneAt !== undefined) update.designer_done_at = updates.designerDoneAt
+  // Usa "in" para detectar a chave mesmo quando o valor é undefined (reset explícito → null no banco)
+  if ("designerDoneAt" in updates) update.designer_done_at = updates.designerDoneAt ?? null
   await supabase.from("posts").update(update).eq("id", id)
 }
 
