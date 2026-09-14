@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import {
   CheckCircle, XCircle, MessageCircle, Clock,
   ImageIcon, Link2, FileText, X, Pencil, Download, Trash2,
-  ChevronLeft, ChevronRight, ZoomIn,
+  ChevronLeft, ChevronRight, ZoomIn, GripVertical,
 } from "lucide-react"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -256,13 +256,21 @@ export function Kanban({ posts, onStatusChange, onPostUpdate, onPostDelete, auth
                               <div
                                 ref={provided.innerRef}
                                 {...provided.draggableProps}
-                                {...provided.dragHandleProps}
                                 onClick={() => !isEditingTitle && openPost(post)}
                                 className={cn(
-                                  "bg-white rounded-xl border border-slate-200 p-3 mb-2 cursor-pointer hover:shadow-sm transition-all select-none group",
+                                  "bg-white rounded-xl border border-slate-200 p-3 mb-2 cursor-pointer hover:shadow-sm transition-all select-none group relative",
                                   snapshot.isDragging && "shadow-lg rotate-1 border-violet-300"
                                 )}
                               >
+                                {/* Drag handle */}
+                                <div
+                                  {...provided.dragHandleProps}
+                                  onClick={e => e.stopPropagation()}
+                                  className="absolute left-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 p-1"
+                                  title="Arrastar"
+                                >
+                                  <GripVertical className="w-3.5 h-3.5" />
+                                </div>
                                 {/* Network badge + approve/reject + delete */}
                                 <div className="flex items-center justify-between mb-2">
                                   <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-medium", networkConfig[post.network].color)}>
