@@ -23,6 +23,8 @@ function mapPost(row: Record<string, unknown>): Post {
   }
 }
 
+// Lista leve: sem attachments nem comments (base64 pesado).
+// Dados completos são carregados sob demanda via getFullPost() ao abrir um card.
 export async function getPostsByClient(
   clientId: string,
   status?: string
@@ -31,7 +33,7 @@ export async function getPostsByClient(
   let query = supabase
     .from("posts")
     .select(
-      "id, client_id, title, caption, network, status, scheduled_at, published_at, image_url, hashtags, comments, attachments, format, designer_done, designer_done_at, created_at, updated_at"
+      "id, client_id, title, caption, network, status, scheduled_at, published_at, image_url, hashtags, format, designer_done, designer_done_at, created_at, updated_at"
     )
     .eq("client_id", clientId)
     .order("created_at", { ascending: true })
@@ -41,6 +43,20 @@ export async function getPostsByClient(
   const { data, error } = await query
   if (error || !data) return []
   return data.map(mapPost)
+}
+
+// Carrega todos os campos (attachments + comments) de um único post, sob demanda.
+export async function getFullPost(id: string): Promise<Post | null> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("posts")
+    .select(
+      "id, client_id, title, caption, network, status, scheduled_at, published_at, image_url, hashtags, comments, attachments, format, designer_done, designer_done_at, created_at, updated_at"
+    )
+    .eq("id", id)
+    .single()
+  if (error || !data) return null
+  return mapPost(data as Record<string, unknown>)
 }
 
 // Busca posts SEM attachments nem comments completos (ambos podem ter base64 de imagens pesadas).

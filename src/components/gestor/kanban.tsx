@@ -22,6 +22,7 @@ interface KanbanProps {
   onPostUpdate: (data: Partial<Post>) => void
   onPostDelete: (postId: string) => void
   authorName?: string
+  fetchFullPost?: (postId: string) => Promise<Post | null>
 }
 
 const columns: { id: PostStatus; label: string; color: string; bg: string; border: string }[] = [
@@ -31,8 +32,20 @@ const columns: { id: PostStatus; label: string; color: string; bg: string; borde
   { id: "publicado", label: "Publicados", color: "text-green-600",  bg: "bg-green-50",   border: "border-green-200" },
 ]
 
-export function Kanban({ posts, onStatusChange, onPostUpdate, onPostDelete, authorName }: KanbanProps) {
+export function Kanban({ posts, onStatusChange, onPostUpdate, onPostDelete, authorName, fetchFullPost }: KanbanProps) {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
+  const [loadingFullPost, setLoadingFullPost] = useState(false)
+
+  function openPost(post: Post) {
+    setSelectedPost(post)
+    if (fetchFullPost) {
+      setLoadingFullPost(true)
+      fetchFullPost(post.id).then(full => {
+        if (full) setSelectedPost(prev => prev?.id === post.id ? full : prev)
+        setLoadingFullPost(false)
+      })
+    }
+  }
   const [comment, setComment] = useState("")
   const [attachmentType, setAttachmentType] = useState<"image" | "link" | "note" | null>(null)
   const [linkInput, setLinkInput] = useState("")
@@ -244,7 +257,7 @@ export function Kanban({ posts, onStatusChange, onPostUpdate, onPostDelete, auth
                                 ref={provided.innerRef}
                                 {...provided.draggableProps}
                                 {...provided.dragHandleProps}
-                                onClick={() => !isEditingTitle && setSelectedPost(post)}
+                                onClick={() => !isEditingTitle && openPost(post)}
                                 className={cn(
                                   "bg-white rounded-xl border border-slate-200 p-3 mb-2 cursor-pointer hover:shadow-sm transition-all select-none group",
                                   snapshot.isDragging && "shadow-lg rotate-1 border-violet-300"
@@ -549,6 +562,12 @@ export function Kanban({ posts, onStatusChange, onPostUpdate, onPostDelete, auth
               {/* Attachments */}
               <div className="space-y-2">
                 <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Anexos</p>
+                {loadingFullPost && (
+                  <div className="flex items-center gap-2 text-xs text-slate-400 py-2">
+                    <div className="w-3.5 h-3.5 border-2 border-violet-300 border-t-violet-600 rounded-full animate-spin" />
+                    Carregando anexos...
+                  </div>
+                )}
 
                 {(selectedPost.attachments ?? []).length > 0 && (() => {
                   const imgAtts = selectedPost.attachments!.filter(a => a.type === "image")

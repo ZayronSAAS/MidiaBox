@@ -3,7 +3,7 @@
 import { use, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useClients } from "@/lib/clients-context"
-import { getPostsByClient, createPost, updatePost, deletePost } from "@/lib/posts-service"
+import { getPostsByClient, createPost, updatePost, deletePost, getFullPost } from "@/lib/posts-service"
 import { Client, Post, PostStatus, SocialNetwork } from "@/types"
 import { PostModal } from "@/components/gestor/post-modal"
 import { Kanban } from "@/components/gestor/kanban"
@@ -339,7 +339,7 @@ export default function ClientePage({ params }: PageProps) {
           </TabsList>
 
           <TabsContent value="kanban">
-            <Kanban posts={posts} onStatusChange={handleStatusChange} onPostUpdate={handlePostUpdate} onPostDelete={handleDelete} />
+            <Kanban posts={posts} onStatusChange={handleStatusChange} onPostUpdate={handlePostUpdate} onPostDelete={handleDelete} fetchFullPost={getFullPost} />
           </TabsContent>
 
           <TabsContent value="lista">
