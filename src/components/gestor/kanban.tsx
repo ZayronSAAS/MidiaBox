@@ -47,6 +47,13 @@ export function Kanban({ posts, onStatusChange, onPostUpdate, onPostDelete, auth
   const [editingDialogTitle, setEditingDialogTitle] = useState(false)
   const [editingDialogTitleValue, setEditingDialogTitleValue] = useState("")
 
+  // Dialog caption editing
+  const [editingCaption, setEditingCaption] = useState(false)
+  const [editingCaptionValue, setEditingCaptionValue] = useState("")
+
+  // Delete confirmation inside modal
+  const [confirmModalDelete, setConfirmModalDelete] = useState(false)
+
   function onDragEnd(result: DropResult) {
     if (!result.destination) return
     const { draggableId, source, destination } = result
@@ -107,6 +114,17 @@ export function Kanban({ posts, onStatusChange, onPostUpdate, onPostDelete, auth
       setSelectedPost(updated)
     }
     setEditingDialogTitle(false)
+  }
+
+  function saveCaption() {
+    if (!selectedPost) return
+    const newCaption = editingCaptionValue
+    if (newCaption !== selectedPost.caption) {
+      const updated = { ...selectedPost, caption: newCaption }
+      onPostUpdate(updated)
+      setSelectedPost(updated)
+    }
+    setEditingCaption(false)
   }
 
   // ── Attachments ───────────────────────────────────────
@@ -395,10 +413,11 @@ export function Kanban({ posts, onStatusChange, onPostUpdate, onPostDelete, auth
         <Dialog open={!!selectedPost} onOpenChange={() => {
           setSelectedPost(null); setComment(""); setAttachmentType(null)
           setLinkInput(""); setNoteInput(""); setEditingDialogTitle(false)
+          setEditingCaption(false); setConfirmModalDelete(false)
         }}>
           <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto bg-white text-slate-900 border-slate-200">
             <DialogHeader>
-              {/* ── Editable dialog title ── */}
+              {/* ── Editable dialog title + delete ── */}
               <div className="flex items-center gap-2 pr-6">
                 {editingDialogTitle ? (
                   <input
@@ -425,6 +444,31 @@ export function Kanban({ posts, onStatusChange, onPostUpdate, onPostDelete, auth
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
+                    {/* Delete inside modal */}
+                    {confirmModalDelete ? (
+                      <div className="flex gap-1.5 items-center ml-1">
+                        <button
+                          onClick={() => { onPostDelete(selectedPost.id); setSelectedPost(null); setConfirmModalDelete(false) }}
+                          className="text-[11px] px-2.5 py-1 rounded-full bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors"
+                        >
+                          Excluir
+                        </button>
+                        <button
+                          onClick={() => setConfirmModalDelete(false)}
+                          className="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 font-semibold hover:bg-slate-200 transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmModalDelete(true)}
+                        className="flex-shrink-0 text-slate-300 hover:text-red-500 transition-colors"
+                        title="Excluir post"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </>
                 )}
               </div>
@@ -445,12 +489,46 @@ export function Kanban({ posts, onStatusChange, onPostUpdate, onPostDelete, auth
                 </span>
               </div>
 
-              {/* Caption */}
-              {selectedPost.caption && (
-                <div className="bg-slate-50 rounded-xl border border-slate-100 p-4">
-                  <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{selectedPost.caption}</p>
-                  {selectedPost.hashtags?.length > 0 && (
-                    <p className="text-sm text-violet-600 mt-2">{selectedPost.hashtags.join(" ")}</p>
+              {/* Caption — editável */}
+              {(selectedPost.caption || true) && (
+                <div className="group relative bg-slate-50 rounded-xl border border-slate-100 p-4">
+                  {editingCaption ? (
+                    <div className="space-y-2">
+                      <textarea
+                        autoFocus
+                        value={editingCaptionValue}
+                        onChange={(e) => setEditingCaptionValue(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Escape") setEditingCaption(false) }}
+                        rows={6}
+                        className="w-full text-sm text-slate-700 bg-white border border-violet-300 rounded-lg p-2 resize-none focus:outline-none focus:ring-2 focus:ring-violet-500/40 leading-relaxed"
+                      />
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={saveCaption} className="flex-1 text-xs h-7" style={{ background: "linear-gradient(135deg, oklch(0.65 0.22 283), oklch(0.55 0.25 300))" }}>
+                          Salvar
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => setEditingCaption(false)} className="text-xs h-7 border-slate-200 text-slate-500">
+                          Cancelar
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {selectedPost.caption ? (
+                        <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed pr-6">{selectedPost.caption}</p>
+                      ) : (
+                        <p className="text-sm text-slate-400 italic pr-6">Sem legenda</p>
+                      )}
+                      {selectedPost.hashtags?.length > 0 && (
+                        <p className="text-sm text-violet-600 mt-2">{selectedPost.hashtags.join(" ")}</p>
+                      )}
+                      <button
+                        onClick={() => { setEditingCaptionValue(selectedPost.caption ?? ""); setEditingCaption(true) }}
+                        className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-slate-300 hover:text-violet-500 transition-all"
+                        title="Editar legenda"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    </>
                   )}
                 </div>
               )}
