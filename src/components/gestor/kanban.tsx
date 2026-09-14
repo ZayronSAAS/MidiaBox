@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import {
   CheckCircle, XCircle, MessageCircle, Clock,
   ImageIcon, Link2, FileText, X, Pencil, Download, Trash2,
+  ChevronLeft, ChevronRight, ZoomIn,
 } from "lucide-react"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -53,6 +54,18 @@ export function Kanban({ posts, onStatusChange, onPostUpdate, onPostDelete, auth
 
   // Delete confirmation inside modal
   const [confirmModalDelete, setConfirmModalDelete] = useState(false)
+
+  // Lightbox
+  const [lightboxImages, setLightboxImages] = useState<PostAttachment[]>([])
+  const [lightboxIndex, setLightboxIndex] = useState(0)
+
+  function openLightbox(images: PostAttachment[], index: number) {
+    setLightboxImages(images)
+    setLightboxIndex(index)
+  }
+  function closeLightbox() { setLightboxImages([]) }
+  function lightboxPrev() { setLightboxIndex(i => (i - 1 + lightboxImages.length) % lightboxImages.length) }
+  function lightboxNext() { setLightboxIndex(i => (i + 1) % lightboxImages.length) }
 
   function onDragEnd(result: DropResult) {
     if (!result.destination) return
@@ -537,31 +550,42 @@ export function Kanban({ posts, onStatusChange, onPostUpdate, onPostDelete, auth
               <div className="space-y-2">
                 <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Anexos</p>
 
-                {(selectedPost.attachments ?? []).length > 0 && (
+                {(selectedPost.attachments ?? []).length > 0 && (() => {
+                  const imgAtts = selectedPost.attachments!.filter(a => a.type === "image")
+                  return (
                   <div className="space-y-2">
                     {selectedPost.attachments!.map((att) => (
                       <div key={att.id}>
                         {att.type === "image" ? (
-                          <div className="relative rounded-xl overflow-hidden border border-slate-200">
-                            <img src={att.content} alt={att.name ?? "Imagem"} className="w-full max-h-52 object-cover" />
+                          <div className="relative rounded-xl overflow-hidden border border-slate-200 group/img">
+                            {/* Clicável para lightbox */}
+                            <button
+                              onClick={() => openLightbox(imgAtts, imgAtts.findIndex(a => a.id === att.id))}
+                              className="block w-full text-left"
+                            >
+                              <img src={att.content} alt={att.name ?? "Imagem"} className="w-full max-h-52 object-cover" />
+                              <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/20 transition-colors flex items-center justify-center">
+                                <ZoomIn className="w-8 h-8 text-white opacity-0 group-hover/img:opacity-100 transition-opacity drop-shadow-lg" />
+                              </div>
+                            </button>
                             {/* Remover */}
                             <button
                               onClick={() => handleRemoveAttachment(selectedPost, att.id)}
-                              className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors"
+                              className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors z-10"
                             >
                               <X className="w-3 h-3" />
                             </button>
                             {/* Baixar */}
                             <button
                               onClick={() => downloadAttachment(att.content, att.name)}
-                              className="absolute top-2 right-10 flex items-center gap-1 px-2 py-1 rounded-lg bg-black/50 text-white text-[11px] font-medium hover:bg-black/70 transition-colors"
+                              className="absolute top-2 right-10 flex items-center gap-1 px-2 py-1 rounded-lg bg-black/50 text-white text-[11px] font-medium hover:bg-black/70 transition-colors z-10"
                               title="Baixar imagem"
                             >
                               <Download className="w-3 h-3" />
                               Baixar
                             </button>
                             {att.name && (
-                              <div className="absolute bottom-0 left-0 right-0 bg-black/40 px-3 py-1.5">
+                              <div className="absolute bottom-0 left-0 right-0 bg-black/40 px-3 py-1.5 z-10">
                                 <p className="text-white text-[11px] truncate">{att.name}</p>
                               </div>
                             )}
@@ -586,7 +610,8 @@ export function Kanban({ posts, onStatusChange, onPostUpdate, onPostDelete, auth
                       </div>
                     ))}
                   </div>
-                )}
+                  )
+                })()}
 
                 {!attachmentType && (
                   <div className="flex gap-2">
@@ -699,6 +724,89 @@ export function Kanban({ posts, onStatusChange, onPostUpdate, onPostDelete, auth
             </div>
           </DialogContent>
         </Dialog>
+      )}
+
+      {/* ── Lightbox carrossel ── */}
+      {lightboxImages.length > 0 && (
+        <div
+          className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center"
+          onClick={closeLightbox}
+        >
+          {/* Fechar */}
+          <button
+            onClick={closeLightbox}
+            className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+
+          {/* Contador */}
+          {lightboxImages.length > 1 && (
+            <span className="absolute top-4 left-1/2 -translate-x-1/2 text-white/70 text-sm">
+              {lightboxIndex + 1} / {lightboxImages.length}
+            </span>
+          )}
+
+          {/* Seta esquerda */}
+          {lightboxImages.length > 1 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); lightboxPrev() }}
+              className="absolute left-4 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+          )}
+
+          {/* Imagem */}
+          <div
+            className="max-w-4xl max-h-[85vh] mx-16 flex flex-col items-center gap-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={lightboxImages[lightboxIndex].content}
+              alt={lightboxImages[lightboxIndex].name ?? "Imagem"}
+              className="max-w-full max-h-[75vh] object-contain rounded-xl shadow-2xl"
+            />
+            {lightboxImages[lightboxIndex].name && (
+              <p className="text-white/60 text-sm truncate">{lightboxImages[lightboxIndex].name}</p>
+            )}
+            <button
+              onClick={() => downloadAttachment(lightboxImages[lightboxIndex].content, lightboxImages[lightboxIndex].name)}
+              className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 text-white text-sm hover:bg-white/20 transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              Baixar
+            </button>
+          </div>
+
+          {/* Seta direita */}
+          {lightboxImages.length > 1 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); lightboxNext() }}
+              className="absolute right-4 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors"
+            >
+              <ChevronRight className="w-6 h-6" />
+            </button>
+          )}
+
+          {/* Miniaturas */}
+          {lightboxImages.length > 1 && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+              {lightboxImages.map((img, i) => (
+                <button
+                  key={img.id}
+                  onClick={(e) => { e.stopPropagation(); setLightboxIndex(i) }}
+                  className={cn(
+                    "w-12 h-12 rounded-lg overflow-hidden border-2 transition-all",
+                    i === lightboxIndex ? "border-white scale-110" : "border-white/30 opacity-60 hover:opacity-90"
+                  )}
+                >
+                  <img src={img.content} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </>
   )
