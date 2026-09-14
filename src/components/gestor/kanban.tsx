@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import {
   CheckCircle, XCircle, MessageCircle, Clock,
-  ImageIcon, Link2, FileText, X, Pencil, Download,
+  ImageIcon, Link2, FileText, X, Pencil, Download, Trash2,
 } from "lucide-react"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -36,6 +36,8 @@ export function Kanban({ posts, onStatusChange, onPostUpdate, onPostDelete, auth
   const [attachmentType, setAttachmentType] = useState<"image" | "link" | "note" | null>(null)
   const [linkInput, setLinkInput] = useState("")
   const [noteInput, setNoteInput] = useState("")
+
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   // Inline title editing on cards
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null)
@@ -217,29 +219,56 @@ export function Kanban({ posts, onStatusChange, onPostUpdate, onPostDelete, auth
                                   snapshot.isDragging && "shadow-lg rotate-1 border-violet-300"
                                 )}
                               >
-                                {/* Network badge + approve/reject */}
+                                {/* Network badge + approve/reject + delete */}
                                 <div className="flex items-center justify-between mb-2">
                                   <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-medium", networkConfig[post.network].color)}>
                                     {networkConfig[post.network].label}
                                   </span>
-                                  {post.status === "aprovacao" && (
-                                    <div className="flex gap-1">
+                                  <div className="flex gap-1 items-center">
+                                    {post.status === "aprovacao" && (
+                                      <>
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); handleApprove(post) }}
+                                          className="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center hover:bg-green-200 transition-colors"
+                                          title="Aprovar"
+                                        >
+                                          <CheckCircle className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); handleReject(post) }}
+                                          className="w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors shadow-sm"
+                                          title="Reprovar"
+                                        >
+                                          <XCircle className="w-3.5 h-3.5" />
+                                        </button>
+                                      </>
+                                    )}
+                                    {/* Delete button */}
+                                    {confirmDeleteId === post.id ? (
+                                      <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); onPostDelete(post.id); setConfirmDeleteId(null) }}
+                                          className="text-[10px] px-2 py-0.5 rounded-full bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors"
+                                        >
+                                          Confirmar
+                                        </button>
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null) }}
+                                          className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 font-semibold hover:bg-slate-300 transition-colors"
+                                        >
+                                          Não
+                                        </button>
+                                      </div>
+                                    ) : (
                                       <button
-                                        onClick={(e) => { e.stopPropagation(); handleApprove(post) }}
-                                        className="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center hover:bg-green-200 transition-colors"
-                                        title="Aprovar"
+                                        onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(post.id) }}
+                                        className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-full text-slate-300 flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-all"
+                                        title="Excluir post"
                                       >
-                                        <CheckCircle className="w-3.5 h-3.5" />
+                                        <Trash2 className="w-3.5 h-3.5" />
                                       </button>
-                                      <button
-                                        onClick={(e) => { e.stopPropagation(); handleReject(post) }}
-                                        className="w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors shadow-sm"
-                                        title="Reprovar"
-                                      >
-                                        <XCircle className="w-3.5 h-3.5" />
-                                      </button>
-                                    </div>
-                                  )}
+                                    )}
+                                  </div>
                                 </div>
 
                                 {/* ── TITLE (inline editable) ── */}
