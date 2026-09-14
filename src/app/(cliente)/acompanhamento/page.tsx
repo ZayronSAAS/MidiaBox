@@ -299,6 +299,20 @@ export default function AcompanhamentoPage() {
                 </span>
               </div>
 
+              {selectedPost.attachments && selectedPost.attachments.filter(a => a.type === "image").length > 0 && (
+                <div className="grid grid-cols-2 gap-2">
+                  {selectedPost.attachments.filter(a => a.type === "image").map(img => (
+                    <a key={img.id} href={img.content} target="_blank" rel="noopener noreferrer">
+                      <img
+                        src={img.content}
+                        alt={img.name ?? "imagem"}
+                        className="w-full rounded-xl object-cover aspect-square border border-slate-100 hover:opacity-90 transition-opacity cursor-zoom-in"
+                      />
+                    </a>
+                  ))}
+                </div>
+              )}
+
               <div className="bg-slate-50 rounded-xl border border-slate-100 p-4">
                 <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{selectedPost.caption}</p>
                 {selectedPost.hashtags?.length > 0 && (
