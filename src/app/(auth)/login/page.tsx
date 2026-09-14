@@ -28,7 +28,7 @@ export default function LoginPage() {
     })
 
     if (authError || !data.user) {
-      setError("E-mail ou senha incorretos. Verifique suas credenciais.")
+      setError(authError?.message ?? "Usuário não encontrado")
       setLoading(false)
       return
     }
