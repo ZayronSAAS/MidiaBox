@@ -23,28 +23,32 @@ export async function POST(request: Request) {
   }
 
   // ── Parse body ────────────────────────────────────────────────────────────
-  const { name, email, password, role } = await request.json() as {
+  const { name, email, password, role, clientId } = await request.json() as {
     name: string
     email: string
     password: string
-    role: "designer" | "aprovador"
+    role: "designer" | "aprovador" | "cliente"
+    clientId?: string
   }
 
-  if (!name || !email || !password || !["designer", "aprovador"].includes(role)) {
+  if (!name || !email || !password || !["designer", "aprovador", "cliente"].includes(role)) {
     return NextResponse.json({ error: "Dados inválidos" }, { status: 400 })
+  }
+
+  if (role === "cliente" && !clientId) {
+    return NextResponse.json({ error: "Selecione o cliente vinculado" }, { status: 400 })
   }
 
   // ── Create Supabase Auth user ─────────────────────────────────────────────
   const admin = createAdminClient()
+  const metadata: Record<string, unknown> = { name, role, gestor_id: user.id }
+  if (role === "cliente" && clientId) metadata.client_id = clientId
+
   const { data: created, error: createError } = await admin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
-    user_metadata: {
-      name,
-      role,
-      gestor_id: user.id,
-    },
+    user_metadata: metadata,
   })
 
   if (createError || !created.user) {
@@ -55,13 +59,15 @@ export async function POST(request: Request) {
   }
 
   // ── Store in team_members ─────────────────────────────────────────────────
-  await supabase.from("team_members").insert({
+  const memberRow: Record<string, unknown> = {
     gestor_id: user.id,
     user_id: created.user.id,
     name,
     email,
     role,
-  })
+  }
+  if (role === "cliente" && clientId) memberRow.client_id = clientId
+  await supabase.from("team_members").insert(memberRow)
 
   return NextResponse.json({ success: true, userId: created.user.id })
 }

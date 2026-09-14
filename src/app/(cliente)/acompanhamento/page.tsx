@@ -1,53 +1,67 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { mockClients, mockPosts } from "@/lib/mock-data"
 import { Post } from "@/types"
 import { createClient } from "@/lib/supabase/client"
-import { Card, CardContent } from "@/components/ui/card"
+import { getPostsByClient, getFullPost, updatePost } from "@/lib/posts-service"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { statusConfig, networkConfig } from "@/lib/utils"
-import { CheckCircle, XCircle, MessageCircle, Calendar, TrendingUp } from "lucide-react"
+import { CheckCircle, XCircle, MessageCircle, Calendar, TrendingUp, Loader2 } from "lucide-react"
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameDay, isSameMonth, isToday } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { cn } from "@/lib/utils"
 
 const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]
 
+interface ClientInfo { id: string; name: string; color: string }
+
 export default function AcompanhamentoPage() {
-  const [userName, setUserName] = useState<string>("")
-  const [posts, setPosts] = useState<Post[]>([])
-  const [client, setClient] = useState(mockClients[0])
-  const [clientReady, setClientReady] = useState<boolean | null>(null) // null = loading
+  const [userName, setUserName]         = useState<string>("")
+  const [posts, setPosts]               = useState<Post[]>([])
+  const [clientInfo, setClientInfo]     = useState<ClientInfo | null>(null)
+  const [clientReady, setClientReady]   = useState<boolean | null>(null)
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
-  const [comment, setComment] = useState("")
+  const [loadingDetail, setLoadingDetail] = useState(false)
+  const [comment, setComment]           = useState("")
+  const [savingComment, setSavingComment] = useState(false)
   const currentMonth = new Date()
 
   useEffect(() => {
-    async function loadUser() {
+    async function loadData() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        setUserName(user.user_metadata?.name ?? user.email ?? "")
-        const clientId = user.user_metadata?.client_id
-        if (!clientId) {
-          setClientReady(false) // sem cliente vinculado
-          return
-        }
-        const foundClient = mockClients.find((c) => c.id === clientId)
-        if (foundClient) {
-          setClient(foundClient)
-          setPosts(mockPosts.filter((p) => p.clientId === clientId))
-          setClientReady(true)
-        } else {
-          setClientReady(false)
-        }
-      }
+      if (!user) { setClientReady(false); return }
+
+      setUserName(user.user_metadata?.name ?? user.email ?? "")
+      const clientId = user.user_metadata?.client_id as string | undefined
+      if (!clientId) { setClientReady(false); return }
+
+      const { data: clientData } = await supabase
+        .from("clients")
+        .select("id, name, color")
+        .eq("id", clientId)
+        .single()
+
+      if (!clientData) { setClientReady(false); return }
+
+      setClientInfo({ id: clientData.id, name: clientData.name, color: clientData.color ?? "#6366f1" })
+      const loadedPosts = await getPostsByClient(clientId)
+      setPosts(loadedPosts)
+      setClientReady(true)
     }
-    loadUser()
+    loadData()
   }, [])
+
+  async function openPost(post: Post) {
+    setSelectedPost(post)
+    setComment("")
+    setLoadingDetail(true)
+    const full = await getFullPost(post.id)
+    if (full) setSelectedPost(prev => prev?.id === post.id ? full : prev)
+    setLoadingDetail(false)
+  }
 
   const published = posts.filter((p) => p.status === "publicado").length
   const scheduled = posts.filter((p) => p.status === "agendado").length
@@ -66,42 +80,42 @@ export default function AcompanhamentoPage() {
     return posts.filter((p) => isSameDay(new Date(p.scheduledAt), day))
   }
 
-  function handleApprove(postId: string) {
+  async function handleApprove(postId: string) {
+    await updatePost(postId, { status: "agendado" })
     setPosts((prev) => prev.map((p) =>
       p.id === postId ? { ...p, status: "agendado" as const, updatedAt: new Date().toISOString() } : p
     ))
     setSelectedPost(null)
   }
 
-  function handleReject(postId: string) {
+  async function handleReject(postId: string) {
+    await updatePost(postId, { status: "reprovado" })
     setPosts((prev) => prev.map((p) =>
       p.id === postId ? { ...p, status: "reprovado" as const, updatedAt: new Date().toISOString() } : p
     ))
     setSelectedPost(null)
   }
 
-  function handleComment(postId: string) {
-    if (!comment.trim()) return
+  async function handleComment(postId: string) {
+    if (!comment.trim() || !selectedPost) return
+    setSavingComment(true)
+    const newComment = {
+      id: `c${Date.now()}`,
+      postId,
+      authorId: "cliente",
+      authorName: userName,
+      authorRole: "cliente" as const,
+      content: comment,
+      createdAt: new Date().toISOString(),
+    }
+    const updatedComments = [...(selectedPost.comments ?? []), newComment]
+    await updatePost(postId, { comments: updatedComments })
+    setSelectedPost(prev => prev ? { ...prev, comments: updatedComments } : prev)
     setPosts((prev) => prev.map((p) =>
-      p.id === postId
-        ? {
-            ...p,
-            comments: [
-              ...p.comments,
-              {
-                id: `c${Date.now()}`,
-                postId,
-                authorId: "cliente",
-                authorName: userName,
-                authorRole: "cliente" as const,
-                content: comment,
-                createdAt: new Date().toISOString(),
-              },
-            ],
-          }
-        : p
+      p.id === postId ? { ...p, comments: updatedComments } : p
     ))
     setComment("")
+    setSavingComment(false)
   }
 
   // Loading
@@ -146,12 +160,12 @@ export default function AcompanhamentoPage() {
       <div className="flex items-center gap-4 mb-7">
         <div
           className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold"
-          style={{ backgroundColor: client.color }}
+          style={{ backgroundColor: clientInfo?.color ?? "#6366f1" }}
         >
-          {client.name.charAt(0)}
+          {clientInfo?.name.charAt(0) ?? "?"}
         </div>
         <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">{client.name}</h1>
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">{clientInfo?.name ?? ""}</h1>
           <p className="text-slate-500 text-sm capitalize">Acompanhamento — {format(currentMonth, "MMMM 'de' yyyy", { locale: ptBR })}</p>
         </div>
       </div>
@@ -186,7 +200,7 @@ export default function AcompanhamentoPage() {
             {posts.filter((p) => p.status === "aprovacao").map((post) => (
               <div
                 key={post.id}
-                onClick={() => setSelectedPost(post)}
+                onClick={() => openPost(post)}
                 className="bg-orange-50 border border-orange-200 rounded-xl px-5 py-4 flex items-center justify-between cursor-pointer hover:bg-orange-100/70 transition-colors"
               >
                 <div>
@@ -247,7 +261,7 @@ export default function AcompanhamentoPage() {
                   {dayPosts.slice(0, 2).map((post) => (
                     <button
                       key={post.id}
-                      onClick={() => setSelectedPost(post)}
+                      onClick={() => openPost(post)}
                       className={cn(
                         "w-full text-left text-[11px] px-2 py-0.5 rounded-md truncate font-medium hover:opacity-75 transition-opacity",
                         statusConfig[post.status].color
@@ -270,7 +284,10 @@ export default function AcompanhamentoPage() {
         <Dialog open={!!selectedPost} onOpenChange={() => setSelectedPost(null)}>
           <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto bg-white text-slate-900 border-slate-200">
             <DialogHeader>
-              <DialogTitle className="text-slate-900">{selectedPost.title}</DialogTitle>
+              <DialogTitle className="text-slate-900 flex items-center gap-2">
+                {selectedPost.title}
+                {loadingDetail && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
+              </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 mt-2">
               <div className="flex gap-2">
@@ -320,9 +337,10 @@ export default function AcompanhamentoPage() {
                   size="sm"
                   variant="outline"
                   onClick={() => handleComment(selectedPost.id)}
-                  disabled={!comment.trim()}
+                  disabled={!comment.trim() || savingComment}
                   className="w-full"
                 >
+                  {savingComment ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                   Enviar comentário
                 </Button>
               </div>

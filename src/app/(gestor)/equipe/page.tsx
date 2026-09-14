@@ -2,15 +2,20 @@
 
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { Loader2, UserPlus, Trash2, Eye, EyeOff, Palette, ClipboardCheck, Users2 } from "lucide-react"
+import { Loader2, UserPlus, Trash2, Eye, EyeOff, Palette, ClipboardCheck, Users2, User } from "lucide-react"
 
 interface TeamMember {
   id: string
   userId: string
   name: string
   email: string
-  role: "designer" | "aprovador"
+  role: "designer" | "aprovador" | "cliente"
   createdAt: string
+}
+
+interface ClientOption {
+  id: string
+  name: string
 }
 
 const roleConfig = {
@@ -28,23 +33,35 @@ const roleConfig = {
     activeCard: "border-blue-500 bg-blue-50",
     icon: ClipboardCheck,
   },
+  cliente: {
+    label: "Cliente",
+    desc: "Visualiza e aprova os conteúdos da sua pasta",
+    color: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    activeCard: "border-emerald-500 bg-emerald-50",
+    icon: User,
+  },
 }
 
 export default function EquipePage() {
-  const [members, setMembers]   = useState<TeamMember[]>([])
-  const [loading, setLoading]   = useState(true)
-  const [saving, setSaving]     = useState(false)
-  const [removing, setRemoving] = useState<string | null>(null)
-  const [error, setError]       = useState("")
-  const [success, setSuccess]   = useState("")
-  const [showPass, setShowPass] = useState(false)
+  const [members, setMembers]       = useState<TeamMember[]>([])
+  const [loading, setLoading]       = useState(true)
+  const [saving, setSaving]         = useState(false)
+  const [removing, setRemoving]     = useState<string | null>(null)
+  const [error, setError]           = useState("")
+  const [success, setSuccess]       = useState("")
+  const [showPass, setShowPass]     = useState(false)
+  const [clients, setClients]       = useState<ClientOption[]>([])
 
-  const [name, setName]         = useState("")
-  const [email, setEmail]       = useState("")
-  const [password, setPassword] = useState("")
-  const [role, setRole]         = useState<"designer" | "aprovador">("designer")
+  const [name, setName]             = useState("")
+  const [email, setEmail]           = useState("")
+  const [password, setPassword]     = useState("")
+  const [role, setRole]             = useState<"designer" | "aprovador" | "cliente">("designer")
+  const [clientId, setClientId]     = useState("")
 
-  useEffect(() => { fetchMembers() }, [])
+  useEffect(() => {
+    fetchMembers()
+    fetchClients()
+  }, [])
 
   async function fetchMembers() {
     setLoading(true)
@@ -59,11 +76,20 @@ export default function EquipePage() {
         userId: r.user_id as string,
         name: r.name as string,
         email: r.email as string,
-        role: r.role as "designer" | "aprovador",
+        role: r.role as "designer" | "aprovador" | "cliente",
         createdAt: r.created_at as string,
       })))
     }
     setLoading(false)
+  }
+
+  async function fetchClients() {
+    const supabase = createClient()
+    const { data } = await supabase
+      .from("clients")
+      .select("id, name")
+      .order("name", { ascending: true })
+    if (data) setClients(data as ClientOption[])
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -74,14 +100,14 @@ export default function EquipePage() {
     const res = await fetch("/api/equipe", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password, role }),
+      body: JSON.stringify({ name, email, password, role, clientId: role === "cliente" ? clientId : undefined }),
     })
     const json = await res.json()
     if (!res.ok) {
       setError(json.error ?? "Erro ao criar membro")
     } else {
       setSuccess(`Acesso criado! ${name} já pode entrar com o e-mail informado.`)
-      setName(""); setEmail(""); setPassword("")
+      setName(""); setEmail(""); setPassword(""); setClientId("")
       fetchMembers()
     }
     setSaving(false)
@@ -125,8 +151,8 @@ export default function EquipePage() {
           {/* Role pills */}
           <div className="space-y-2">
             <p className="text-sm font-medium text-slate-700">Tipo de acesso</p>
-            <div className="grid grid-cols-2 gap-3">
-              {(["designer", "aprovador"] as const).map(r => {
+            <div className="grid grid-cols-3 gap-3">
+              {(["designer", "aprovador", "cliente"] as const).map(r => {
                 const cfg = roleConfig[r]
                 const Icon = cfg.icon
                 const active = role === r
@@ -142,7 +168,7 @@ export default function EquipePage() {
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <Icon className={`w-4 h-4 ${active ? "text-violet-600" : "text-slate-400"}`} />
+                      <Icon className={`w-4 h-4 ${active ? (r === "cliente" ? "text-emerald-600" : r === "aprovador" ? "text-blue-600" : "text-violet-600") : "text-slate-400"}`} />
                       <span className={`text-sm font-semibold ${active ? "text-slate-900" : "text-slate-600"}`}>
                         {cfg.label}
                       </span>
@@ -155,6 +181,25 @@ export default function EquipePage() {
               })}
             </div>
           </div>
+
+          {/* Client picker — shown only when role = cliente */}
+          {role === "cliente" && (
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">Cliente vinculado</label>
+              <select
+                value={clientId}
+                onChange={e => setClientId(e.target.value)}
+                required
+                className="w-full h-10 px-3 rounded-lg border border-slate-300 bg-white text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition"
+              >
+                <option value="">Selecione o cliente...</option>
+                {clients.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              <p className="text-xs text-slate-400">O cliente verá apenas os posts da pasta selecionada.</p>
+            </div>
+          )}
 
           {/* Name + email */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -253,7 +298,7 @@ export default function EquipePage() {
         ) : (
           <div className="divide-y divide-slate-100">
             {members.map(member => {
-              const cfg = roleConfig[member.role]
+              const cfg = roleConfig[member.role] ?? roleConfig.designer
               const Icon = cfg.icon
               return (
                 <div key={member.id} className="px-6 py-4 flex items-center justify-between gap-4">
